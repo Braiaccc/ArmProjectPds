@@ -8,17 +8,23 @@ import { CadastroMateriais } from "@/components/CadastroMateriais";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [rentalAdded, setRentalAdded] = useState(0);
+
+  const handleSave = () => {
+    // Incrementa o estado para forçar o Historico a re-renderizar
+    setRentalAdded(prev => prev + 1);
+  };
 
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
         return <Dashboard />;
       case "novoAluguel":
-        return <NovoAluguel/>;
+        return <NovoAluguel onSave={handleSave} />;
       case "historico":
-        return <Historico/>;
+        return <Historico rentalAdded={rentalAdded} />;
       case "materiais":
-        return <CadastroMateriais/>
+        return <CadastroMateriais />;
       default:
         return <Dashboard />;
     }

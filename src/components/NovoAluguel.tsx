@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, X, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-export const NovoAluguel = () => {
+export const NovoAluguel = ({ onSave }) => {
   const { toast } = useToast();
   const [selectedMaterials, setSelectedMaterials] = useState([]);
   const [cliente, setCliente] = useState("");
@@ -51,7 +51,6 @@ export const NovoAluguel = () => {
   };
 
   const handleSave = async () => {
-    // 1. Coleta os dados do formulário
     const novo = {
       cliente,
       telefone,
@@ -62,11 +61,10 @@ export const NovoAluguel = () => {
       valor: Number(valor),
       pagamento,
       observacoes,
-      status: pagamento,
+      status: pagamento === "pago" ? "concluido" : "pendente",
     };
 
     try {
-      // 2. Faz a requisição POST para API
       const response = await fetch("http://localhost:5000/api/rentals", {
         method: "POST",
         headers: {
@@ -76,18 +74,21 @@ export const NovoAluguel = () => {
       });
 
       if (!response.ok) {
+        // Log para obter o status da resposta e o texto do status
+        console.error(`Falha ao salvar o aluguel: ${response.status} ${response.statusText}`);
         throw new Error("Erro ao salvar o aluguel.");
       }
 
       const data = await response.json();
 
-      // 3. Exibe a notificação de sucesso
       toast({
         title: "Aluguel criado com sucesso!",
         description: `Cliente: ${data.rental.cliente}`,
       });
+      
+      console.log("Chamando a função onSave no componente NovoAluguel.");
+      onSave();
 
-      // 4. Limpa o formulário
       setCliente("");
       setTelefone("");
       setEndereco("");

@@ -1,12 +1,11 @@
-// backend/src/routes/rentals.js
 const express = require('express');
 const router = express.Router();
-const rentalsController = require('../api/rentals/rentals.controller');
+const rentalsController = require('../api/controllers/rentals.controller');
 
-// Rota para criar um novo aluguel
-router.post('/rentals', rentalsController.createRental);
-
-// Rota para buscar todos os aluguéis
-router.get('/rentals', rentalsController.getRentals);
+// Rotas CRUD de Aluguéis
+router.post('/', rentalsController.createRental);
+router.get('/', rentalsController.getRentals);
+router.put('/:id', rentalsController.updateRental);
+router.delete('/:id', rentalsController.deleteRental);
 
 module.exports = router;

@@ -6,13 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, Calendar } from "lucide-react";
 
-export const Historico = () => {
+export const Historico = ({ rentalAdded }) => {
   const [alugueis, setAlugueis] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [loading, setLoading] = useState(true);
 
-  // UseEffect para buscar os dados da API quando o componente for montado
+  // UseEffect para buscar os dados da API quando o componente for montado ou quando um novo aluguel for adicionado
   useEffect(() => {
     const fetchRentals = async () => {
       try {
@@ -29,11 +29,11 @@ export const Historico = () => {
       }
     };
     fetchRentals();
-  }, []);
+  }, [rentalAdded]); // Adicionado rentalAdded como dependência
 
   const filteredHistorico = alugueis.filter(item => {
     const matchesSearch = item.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item._id.toLowerCase().includes(searchTerm.toLowerCase()); // MongoDB usa _id
+      (item._id && item._id.toLowerCase().includes(searchTerm.toLowerCase())); // MongoDB usa _id
     const matchesStatus = statusFilter === "todos" || item.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -74,15 +74,7 @@ export const Historico = () => {
                   <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="concluido">Concluído</SelectItem>
                   <SelectItem value="pendente">Pendente</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value="30dias" onValueChange={() => {}}>
-                <SelectTrigger className="w-full md:w-[180px] rounded-lg">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30dias">Últimos 30 dias</SelectItem>
-                  <SelectItem value="60dias">Últimos 60 dias</SelectItem>
+                  <SelectItem value="parcial">Parcial</SelectItem>
                 </SelectContent>
               </Select>
             </div>
