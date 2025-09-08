@@ -62,11 +62,11 @@ export const NovoAluguel = () => {
       valor: Number(valor),
       pagamento,
       observacoes,
-      status: "concluido",
+      status: pagamento,
     };
 
     try {
-      // 2. Faz a requisição POST para a sua API
+      // 2. Faz a requisição POST para API
       const response = await fetch("http://localhost:5000/api/rentals", {
         method: "POST",
         headers: {
@@ -199,8 +199,11 @@ export const NovoAluguel = () => {
               <Input
                 id="valor"
                 type="number"
-                value={valor}
-                onChange={(e) => setValor(Number(e.target.value))}
+                value={valor === 0 ? "" : valor}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setValor(val === "" ? "" : Number(val));
+                }}
               />
             </div>
             <div className="space-y-2">

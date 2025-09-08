@@ -10,8 +10,8 @@ interface NavigationProps {
 export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home }, 
-    { id: 'novoAluguel', label: 'Novo aluguel', icon: Home }, 
-    { id: 'historico', label: 'Historico', icon: List }, 
+    { id: 'novoAluguel', label: 'Novo aluguel', icon: Package }, 
+    { id: 'historico', label: 'Historico', icon: History }, 
     { id: 'materiais', label: 'CadastroMateriais', icon: Plus }, 
   ];
 
