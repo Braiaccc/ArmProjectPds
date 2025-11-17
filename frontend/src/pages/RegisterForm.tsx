@@ -22,6 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebaseConfig";
+import { useAuth } from "@/context/AuthContext";
 
 interface RegisterFormData {
   name: string;
@@ -40,6 +41,8 @@ const RegisterForm = ({ onBackToLogin }: RegisterFormProps) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { toast } = useToast();
 
+  const { register: registerUser } = useAuth();
+
   const {
     register,
     handleSubmit,
@@ -51,17 +54,20 @@ const RegisterForm = ({ onBackToLogin }: RegisterFormProps) => {
 
 const onSubmit = async (data: RegisterFormData) => {
   try {
-    await createUserWithEmailAndPassword(auth, data.email, data.password);
+    await registerUser(data.email, data.password, data.name, data.company);
 
     toast({
       title: "Conta criada!",
       description: `Bem-vindo ao ARM, ${data.name}`,
     });
-  } catch (error) {
-    toast({
-      title: "Erro ao registrar",
-      description: "Verifique os dados e tente novamente.",
-      variant: "destructive",
+  } catch (error: any) {
+      toast({
+        title: "Erro ao registrar",
+        description:
+          error.code === "auth/email-already-in-use"
+            ? "Este email já está em uso."
+            : "Verifique os dados e tente novamente.",
+        variant: "destructive",
     });
   }
 };

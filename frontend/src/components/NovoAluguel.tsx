@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export const NovoAluguel = ({ onSave }) => {
   const { toast } = useToast();
-  const [selectedMaterials, setSelectedMaterials] = useState([]);
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [cliente, setCliente] = useState("");
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
@@ -26,28 +26,64 @@ export const NovoAluguel = ({ onSave }) => {
   const [valor, setValor] = useState(0);
   const [pagamento, setPagamento] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const [materiaisDisponiveis, setMateriaisDisponiveis] = useState<Material[]>([]);
+  const [loadingMateriais, setLoadingMateriais] = useState<boolean>(true);
 
-  const materiaisDisponiveis = [
-    "Betoneira",
-    "Andaime",
-    "Furadeira",
-    "Martelete",
-    "Compressor",
-    "Pistola de Pintura",
-    "Serra Circular",
-    "Esmerilhadeira",
-    "Parafusadeira",
-    "Nivel a Laser",
-  ];
+  interface Material {
+  _id: string;
+  nome: string;
+  categoria: string;
+  valorDiario: number;
+  codSerie: string;
+  observacoes: string;
+  status: "disponivel" | "alugado" | "manutencao";
+}
 
-  const addMaterial = (material) => {
-    if (!selectedMaterials.includes(material)) {
-      setSelectedMaterials([...selectedMaterials, material]);
+// Adicione este useEffect após a declaração dos seus estados
+  useEffect(() => {
+    // Função assíncrona para buscar os materiais no backend
+    const fetchMateriais = async () => {
+      try {
+        setLoadingMateriais(true);
+        const response = await fetch("http://localhost:5000/api/materiais");
+
+        if (!response.ok) {
+          throw new Error("Falha ao buscar os materiais.");
+        }
+
+        const data: Material[] = await response.json();
+
+        // Filtra apenas os materiais que estão 'disponíveis'
+        const disponiveis = data.filter(m => m.status === 'disponivel');
+        
+        setMateriaisDisponiveis(disponiveis);
+      } catch (error) {
+        console.error("Erro ao carregar materiais:", error);
+        toast({
+          title: "Erro ao carregar materiais",
+          description: "Não foi possível carregar a lista de materiais disponíveis.",
+          variant: "destructive",
+        });
+      } finally {
+        // Garante que o loading seja desativado mesmo em caso de erro
+        setLoadingMateriais(false);
+      }
+    };
+
+    fetchMateriais();
+    // A dependência [toast] garante que o hook tem acesso ao toast atualizado
+  }, [toast]);
+
+ // A função está correta, apenas garantindo o tipo
+  const addMaterial = (materialNome: string) => {
+    if (!selectedMaterials.includes(materialNome)) {
+      setSelectedMaterials([...selectedMaterials, materialNome]);
     }
   };
 
-  const removeMaterial = (material) => {
-    setSelectedMaterials(selectedMaterials.filter((m) => m !== material));
+  // A função removeMaterial também está correta
+  const removeMaterial = (materialNome: string) => {
+    setSelectedMaterials(selectedMaterials.filter((m) => m !== materialNome));
   };
 
   const handleSave = async () => {
@@ -75,7 +111,9 @@ export const NovoAluguel = ({ onSave }) => {
 
       if (!response.ok) {
         // Log para obter o status da resposta e o texto do status
-        console.error(`Falha ao salvar o aluguel: ${response.status} ${response.statusText}`);
+        console.error(
+          `Falha ao salvar o aluguel: ${response.status} ${response.statusText}`
+        );
         throw new Error("Erro ao salvar o aluguel.");
       }
 
@@ -85,7 +123,7 @@ export const NovoAluguel = ({ onSave }) => {
         title: "Aluguel criado com sucesso!",
         description: `Cliente: ${data.rental.cliente}`,
       });
-      
+
       console.log("Chamando a função onSave no componente NovoAluguel.");
       onSave();
 
@@ -164,34 +202,56 @@ export const NovoAluguel = ({ onSave }) => {
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Materiais</Label>
-            <div className="flex flex-wrap gap-2">
-              {materiaisDisponiveis.map((material) => (
-                <Badge
-                  key={material}
-                  variant={
-                    selectedMaterials.includes(material)
-                      ? "default"
-                      : "secondary"
-                  }
-                  className="cursor-pointer transition-colors hover:bg-indigo-500 hover:text-white"
-                  onClick={() => addMaterial(material)}
-                >
-                  {material}
-                </Badge>
-              ))}
+        <div className="space-y-2">
+            <Label>Materiais Disponíveis</Label> 
+            <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">
+              {/* Adiciona feedback de loading */}
+              {loadingMateriais ? (
+                <p className="text-sm text-muted-foreground">Carregando materiais...</p>
+              ) : (
+                /* Itera sobre o estado materiaisDisponiveis (que são objetos) */
+                materiaisDisponiveis.map((material) => (
+                  <Badge
+                    /* Usa o _id como chave única para o React */
+                    key={material._id} 
+                    variant={
+                      /* Verifica se o NOME do material está na lista de selecionados */
+                      selectedMaterials.includes(material.nome)
+                        ? "default"
+                        : "secondary"
+                    }
+                    className="cursor-pointer transition-colors hover:bg-indigo-500 hover:text-white"
+                    /* Ao clicar, adiciona o NOME do material */
+                    onClick={() => addMaterial(material.nome)} 
+                  >
+                    {/* Exibe o NOME do material */
+                    material.nome}
+                  </Badge>
+                ))
+              )}
+              
+              {/* Feedback caso não haja materiais disponíveis */}
+              {!loadingMateriais && materiaisDisponiveis.length === 0 && (
+                 <p className="text-sm text-muted-foreground">Nenhum material disponível encontrado.</p>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2 pt-2">
-              {selectedMaterials.map((material) => (
-                <Badge
-                  key={material}
-                  className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
-                  onClick={() => removeMaterial(material)}
-                >
-                  {material} <X className="h-3 w-3" />
-                </Badge>
-              ))}
+
+            {/* A lógica de renderização dos materiais SELECIONADOS já está correta */}
+            <Label>Materiais Selecionados</Label>
+            <div className="flex flex-wrap gap-2 pt-2 min-h-[40px]">
+              {selectedMaterials.length === 0 ? (
+                 <p className="text-sm text-muted-foreground">Nenhum material selecionado.</p>
+              ) : (
+                selectedMaterials.map((materialNome) => (
+                  <Badge
+                    key={materialNome}
+                    className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
+                    onClick={() => removeMaterial(materialNome)}
+                  >
+                    {materialNome} <X className="h-3 w-3" />
+                  </Badge>
+                ))
+              )}
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

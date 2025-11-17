@@ -16,7 +16,7 @@ export const Header = () => {
 
   const handleLogout = async () => {
     await logout();
-    window.location.href = "/login"; // redireciona após logout
+    window.location.href = "/"; 
   };
 
   return (

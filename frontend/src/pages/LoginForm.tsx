@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { FcGoogle } from 'react-icons/fc';
+import { useAuth } from "@/context/AuthContext";
 
 
 interface LoginFormData {
@@ -27,22 +28,22 @@ interface LoginFormProps {
   onForgotPasswordClick: () => void;
 }
 
-const onSubmit = async (data: LoginFormData) => {
-  try {
-    await signInWithEmailAndPassword(auth, data.email, data.password);
+// const onSubmit = async (data: LoginFormData) => {
+//   try {
+//     await signInWithEmailAndPassword(auth, data.email, data.password);
 
-    toast({
-      title: "Login realizado!",
-      description: `Bem-vindo ao ARM, ${data.email}`,
-    });
-  } catch (error) {
-    toast({
-      title: "Erro ao fazer login",
-      description: "Email ou senha incorretos.",
-      variant: "destructive",
-    });
-  }
-};
+//     toast({
+//       title: "Login realizado!",
+//       description: `Bem-vindo ao ARM, ${data.email}`,
+//     });
+//   } catch (error) {
+//     toast({
+//       title: "Erro ao fazer login",
+//       description: "Email ou senha incorretos.",
+//       variant: "destructive",
+//     });
+//   }
+// };
 
 const LoginForm = ({
   onRegisterClick,
@@ -58,24 +59,51 @@ const LoginForm = ({
   } = useForm<LoginFormData>();
 
   const onSubmit = async (data: LoginFormData) => {
-    // Simular processo de login
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      // 5. Chame a função 'login' do contexto
+      await login(data.email, data.password);
 
-    toast({
-      title: "Login realizado com sucesso!",
-      description: `Bem-vindo ao ARM, ${data.email}`,
-    });
+      toast({
+        title: "Login realizado com sucesso!",
+        description: `Bem-vindo de volta!`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao fazer login",
+        description: "Email ou senha incorretos.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const loginGoogle = async () => {
-    const provider = new GoogleAuthProvider();
+  // const loginGoogle = async () => {
+  //   const provider = new GoogleAuthProvider();
 
+  //   try {
+  //     const result = await signInWithPopup(auth, provider);
+
+  //     console.log("Usuario logado:", result.user);
+  //   } catch (error) {
+  //     console.log("Erro ao logar:", error);
+  //   }
+  // };
+
+  const handleGoogleLogin = async () => {
     try {
-      const result = await signInWithPopup(auth, provider);
-
-      console.log("Usuario logado:", result.user);
+      // Supondo que você moveu 'loginWithGoogle' para o contexto
+      // await loginWithGoogle();
+      
+      // Ou mantenha a lógica aqui e mova para o contexto depois
+       const provider = new GoogleAuthProvider();
+       await signInWithPopup(auth, provider);
+      // Aqui você também deveria salvar no Firestore se for o primeiro login
+      
     } catch (error) {
-      console.log("Erro ao logar:", error);
+      console.log("Erro ao logar com Google:", error);
+       toast({
+        title: "Erro no login com Google",
+        variant: "destructive",
+      });
     }
   };
 
@@ -169,27 +197,20 @@ const LoginForm = ({
               </div>
 
               <div className="flex flex-col items-center gap-3 text-center">
-                <Button onClick={loginGoogle} type="button"
-
-                  className="w-full bg-blue-500 hover:shadow-elegant hover:scale-[1.02] transition-all duration-300 font-medium"
-                >
-                  Entrar
-                </Button>
+                <Button
+        type="submit" // 7. IMPORTANTE: Mude o tipo do botão "Entrar" para 'submit'
+        disabled={isSubmitting}
+        className="w-full bg-blue-500 hover:shadow-elegant hover:scale-[1.02] transition-all duration-300 font-medium"
+      >
+        {isSubmitting ? "Entrando..." : "Entrar"}
+      </Button>
 
                 <span>OU</span>
 
-                {/* <Button
-                  onClick={loginGoogle}
-                  type="submit"
-                  className="w-full bg-red-500 hover:bg-red-600 hover:scale-[1.02] transition-all duration-300 font-medium"
-                >
-                <img src="/Google_G_logo.svg.webp" alt="" />
-                  Entrar
-                </Button> */}
-
+               
 <Button
-  onClick={loginGoogle}
-  type="button"
+        onClick={handleGoogleLogin} // 8. Use a função de login do Google
+        type="button"
   className="w-full 
              bg-white 
              text-black 
