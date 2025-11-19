@@ -5,29 +5,88 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, Calendar } from "lucide-react";
+import { RentalModal } from "./RentalModal";
 
 export const Historico = ({ rentalAdded }) => {
   const [alugueis, setAlugueis] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [loading, setLoading] = useState(true);
+  const [selectedRental, setSelectedRental] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const fetchRentals = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/rentals");
+      if (!response.ok) {
+        throw new Error('Falha ao buscar os aluguéis.');
+      }
+    
+      const data = await response.json();
+
+      const hoje = new Date().toLocaleDateString('pt-BR');
+
+      
+      setAlugueis(data);
+    } catch (error) {
+      console.error("Erro ao carregar histórico:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditRental = (rental) => {
+    setSelectedRental(rental);
+    setModalOpen(true);
+  };
+
+  const handleSaveRental = (updatedRental) => {
+    setSelectedRental(updatedRental);
+    // Atualizar a lista sem recarregar
+    setAlugueis(alugueis.map(r => r._id === updatedRental._id ? updatedRental : r));
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    // Se já estiver no formato YYYY-MM-DD, cria Date local usando partes
+    const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    let d;
+    if (m) {
+      const yyyy = Number(m[1]);
+      const mm = Number(m[2]);
+      const dd = Number(m[3]);
+      // cria data local (evita shift por timezone)
+      d = new Date(yyyy, mm - 1, dd);
+    } else {
+      d = new Date(dateStr);
+    }
+
+    if (!d || isNaN(d.getTime())) return String(dateStr);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  };
+
+    const getPaymentBadge = (pagamento: string) => {
+      switch (pagamento) {
+        case "pago":
+          return (
+            <Badge className="bg-success text-success-foreground">Pago</Badge>
+          );
+        case "pendente":
+          return (
+            <Badge className="bg-warning text-warning-foreground">Pendente</Badge>
+          );
+        case "parcial":
+          return <Badge className="bg-info text-info-foreground">Parcial</Badge>;
+        default:
+          return <Badge variant="outline">{pagamento}</Badge>;
+      }
+    };
 
   // UseEffect para buscar os dados da API quando o componente for montado ou quando um novo aluguel for adicionado
   useEffect(() => {
-    const fetchRentals = async () => {
-      try {
-        const response = await fetch("http://localhost:5000/api/rentals");
-        if (!response.ok) {
-          throw new Error('Falha ao buscar os aluguéis.');
-        }
-        const data = await response.json();
-        setAlugueis(data);
-      } catch (error) {
-        console.error("Erro ao carregar histórico:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchRentals();
   }, [rentalAdded]); // Adicionado rentalAdded como dependência
 
@@ -89,12 +148,12 @@ export const Historico = ({ rentalAdded }) => {
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
                     <p>Materiais: <span className="font-medium">{item.materiais.join(", ")}</span></p>
-                    <p>Período: <span className="font-medium">{item.dataRetirada} - {item.dataDevolucao}</span></p>
-                    <p>Valor: <span className="font-medium text-green-600">R$ {item.valor.toFixed(2)}</span></p>
-                    <p>Status: <span className={`font-medium ${item.status === "concluido" ? "text-green-500" : "text-yellow-500"}`}>{item.status}</span></p>
+                    <p>Período: <span className="font-medium">{formatDate(item.dataRetirada)} - {formatDate(item.dataDevolucao)}</span></p>
+                    <p>Valor: <span className="font-medium text-green-600">R$ {item.valor.toFixed(2)}</span></p>       
+                    <p>Pagamento: <span>{getPaymentBadge(item.pagamento)}</span></p>
                   </div>
                   <div className="mt-4 flex justify-end">
-                    <Button size="sm" variant="ghost" className="text-indigo-600 hover:text-indigo-700">
+                    <Button size="sm" variant="ghost" className="text-indigo-600 hover:text-indigo-700" onClick={() => handleEditRental(item)}>
                       <Eye className="h-4 w-4 mr-1" /> Ver Detalhes
                     </Button>
                   </div>
@@ -111,6 +170,13 @@ export const Historico = ({ rentalAdded }) => {
           </p>
         </CardContent>
       </Card>
+
+      <RentalModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        rental={selectedRental}
+        onSave={handleSaveRental}
+      />
     </div>
   );
 };

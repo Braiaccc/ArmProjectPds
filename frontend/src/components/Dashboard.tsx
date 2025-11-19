@@ -2,69 +2,66 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle, Clock, Eye, Calendar } from "lucide-react";
+import { RentalModal } from "./RentalModal";
+
+import { useEffect, useState } from "react";
 
 export const Dashboard = () => {
-  const dashboardStats = [
-    {
-      title: "Aluguéis Ativos",
-      value: "24",
-      icon: Calendar,
-      color: "info",
-    },
-    {
-      title: "Em Atraso",
-      value: "3",
-      icon: AlertTriangle,
-      color: "destructive",
-    },
-    {
-      title: "Em Dia",
-      value: "21",
-      icon: CheckCircle,
-      color: "success",
-    },
-    {
-      title: "Pagamentos Pendentes",
-      value: "7",
-      icon: Clock,
-      color: "warning",
-    },
-  ];
+  const [stats, setStats] = useState({
+    active: 0,
+    late: 0,
+    onTime: 0,
+    pendingPayment: 0,
+  });
 
-  const recentRentals = [
-    {
-      id: "ALG-001",
-      cliente: "Construção ABC Ltda",
-      materiais: ["Betoneira", "Andaime"],
-      dataRetirada: "2024-08-01",
-      dataDevolucao: "2024-08-05",
-      status: "ativo",
-      pagamento: "pago",
-    },
-    {
-      id: "ALG-002", 
-      cliente: "Obras Silva & Cia",
-      materiais: ["Furadeira", "Martelete"],
-      dataRetirada: "2024-07-30",
-      dataDevolucao: "2024-08-03",
-      status: "atrasado",
-      pagamento: "pendente",
-    },
-    {
-      id: "ALG-003",
-      cliente: "Reformas JK",
-      materiais: ["Compressor", "Pistola"],
-      dataRetirada: "2024-08-02",
-      dataDevolucao: "2024-08-06",
-      status: "ativo",
-      pagamento: "pago",
-    },
+  const [recentRentals, setRecentRentals] = useState([]);
+
+  useEffect(() => {
+    // 1) Busca estatísticas do Dashboard
+    const fetchDashboardStats = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/rentals/stats/dashboard"
+        );
+        const result = await response.json();
+        setStats(result);
+      } catch (error) {
+        console.error("Erro ao buscar estatísticas:", error);
+      }
+    };
+
+    // 2) Busca aluguéis recentes
+    const fetchRecentRentals = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/rentals/recent"
+        );
+        const result = await response.json();
+        setRecentRentals(result);
+      } catch (error) {
+        console.error("Erro ao buscar aluguéis recentes:", error);
+      }
+    };
+
+    fetchDashboardStats();
+    fetchRecentRentals();
+  }, []);
+
+  const dashboardStats = [
+    // foi retirado status "Ativos" e "Atrasados" do dashboard conforme solicitado
+
+    { title: "Em Dia", value: stats.onTime, icon: CheckCircle },
+    { title: "Pagamentos Pendentes", value: stats.pendingPayment, icon: Clock },
   ];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "ativo":
-        return <Badge variant="secondary" className="bg-info/10 text-info">Em Andamento</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-info/10 text-info">
+            Em Andamento
+          </Badge>
+        );
       case "atrasado":
         return <Badge variant="destructive">Atrasado</Badge>;
       default:
@@ -75,12 +72,51 @@ export const Dashboard = () => {
   const getPaymentBadge = (pagamento: string) => {
     switch (pagamento) {
       case "pago":
-        return <Badge className="bg-success text-success-foreground">Pago</Badge>;
+        return (
+          <Badge className="bg-success text-success-foreground">Pago</Badge>
+        );
       case "pendente":
-        return <Badge className="bg-warning text-warning-foreground">Pendente</Badge>;
+        return (
+          <Badge className="bg-warning text-warning-foreground">Pendente</Badge>
+        );
+      case "parcial":
+        return <Badge className="bg-info text-info-foreground">Parcial</Badge>;
       default:
         return <Badge variant="outline">{pagamento}</Badge>;
     }
+  };
+
+  const [selectedRental, setSelectedRental] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const handleEditRental = (rental) => {
+    setSelectedRental(rental);
+    setModalOpen(true);
+  };
+
+  const handleSaveRental = (updatedRental) => {
+    setSelectedRental(updatedRental);
+    // Atualizar a lista sem recarregar
+    setRecentRentals(recentRentals.map(r => r._id === updatedRental._id ? updatedRental : r));
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    let d;
+    if (m) {
+      const yyyy = Number(m[1]);
+      const mm = Number(m[2]);
+      const dd = Number(m[3]);
+      d = new Date(yyyy, mm - 1, dd);
+    } else {
+      d = new Date(dateStr);
+    }
+    if (!d || isNaN(d.getTime())) return String(dateStr);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
   };
 
   return (
@@ -92,7 +128,9 @@ export const Dashboard = () => {
           return (
             <Card key={stat.title}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  {stat.title}
+                </CardTitle>
                 <Icon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -121,16 +159,22 @@ export const Dashboard = () => {
                     {getStatusBadge(rental.status)}
                     {getPaymentBadge(rental.pagamento)}
                   </div>
-                  <p className="text-sm text-muted-foreground mb-1">{rental.cliente}</p>
+                  <p className="text-sm text-muted-foreground mb-1">
+                    {rental.cliente}
+                  </p>
                   <p className="text-sm">
                     Materiais: {rental.materiais.join(", ")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Retirada: {new Date(rental.dataRetirada).toLocaleDateString()} | 
-                    Devolução: {new Date(rental.dataDevolucao).toLocaleDateString()}
+                    Retirada: {formatDate(rental.dataRetirada)} |
+                    Devolução: {formatDate(rental.dataDevolucao)}
                   </p>
                 </div>
-                <Button variant="ghost" size="sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditRental(rental)}
+                >
                   <Eye className="h-4 w-4" />
                 </Button>
               </div>
@@ -138,6 +182,13 @@ export const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+
+      <RentalModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        rental={selectedRental}
+        onSave={handleSaveRental}
+      />
     </div>
   );
 };

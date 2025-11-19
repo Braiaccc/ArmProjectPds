@@ -111,13 +111,23 @@ export const CadastroMateriais: React.FC = () => {
         throw new Error(`Erro ao ${editingMaterial ? "editar" : "salvar"} o material.`);
       }
 
-      toast({
-        title: "Sucesso!",
-        description: `Material ${formData.nome} ${editingMaterial ? "atualizado" : "criado"} com sucesso!`,
-      });
+      if (editingMaterial) {
+        // Atualizar a lista localmente sem recarregar
+        setMateriais(materiais.map(m => m._id === editingMaterial._id ? { ...editingMaterial, ...materialPayload } : m));
+        toast({
+          title: "Material Alterado!",
+          description: `Material ${formData.nome} atualizado com sucesso!`,
+        });
+      } else {
+        // Para novo material, recarregar
+        fetchMateriais();
+        toast({
+          title: "Sucesso!",
+          description: `Material ${formData.nome} criado com sucesso!`,
+        });
+      }
 
       resetForm();
-      fetchMateriais();
     } catch (error) {
       console.error("Falha ao salvar o material:", error);
       toast({
