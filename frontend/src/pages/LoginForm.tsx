@@ -28,22 +28,6 @@ interface LoginFormProps {
   onForgotPasswordClick: () => void;
 }
 
-// const onSubmit = async (data: LoginFormData) => {
-//   try {
-//     await signInWithEmailAndPassword(auth, data.email, data.password);
-
-//     toast({
-//       title: "Login realizado!",
-//       description: `Bem-vindo ao ARM, ${data.email}`,
-//     });
-//   } catch (error) {
-//     toast({
-//       title: "Erro ao fazer login",
-//       description: "Email ou senha incorretos.",
-//       variant: "destructive",
-//     });
-//   }
-// };
 
 const LoginForm = ({
   onRegisterClick,

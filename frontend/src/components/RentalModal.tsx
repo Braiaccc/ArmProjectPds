@@ -1,4 +1,9 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +17,8 @@ import {
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-export const RentalModal = ({ open, onClose, rental, onSave }) => {
+// Adicionei 'onDelete' nas propriedades recebidas
+export const RentalModal = ({ open, onClose, rental, onSave, onDelete }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { toast } = useToast();
@@ -22,12 +28,9 @@ export const RentalModal = ({ open, onClose, rental, onSave }) => {
   // Normalize a date string into YYYY-MM-DD for <input type="date" />
   const toDateInput = (dateStr) => {
     if (!dateStr) return "";
-    // If already YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-    // Try to extract from ISO-like strings
     const m = String(dateStr).match(/(\d{4})-(\d{2})-(\d{2})/);
     if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-    // Fallback: try Date and build local date components
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return "";
     const yyyy = d.getFullYear();
@@ -36,7 +39,7 @@ export const RentalModal = ({ open, onClose, rental, onSave }) => {
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field, value) => {
     onSave({ ...rental, [field]: value });
   };
 
@@ -46,8 +49,8 @@ export const RentalModal = ({ open, onClose, rental, onSave }) => {
       setError("");
 
       const rentalId = rental._id || rental.id;
-      
-      // Remove os IDs antes de enviar
+
+      // Cria uma cópia e remove IDs para envio
       const rentalToUpdate = { ...rental };
       delete rentalToUpdate._id;
       delete rentalToUpdate.id;
@@ -68,22 +71,63 @@ export const RentalModal = ({ open, onClose, rental, onSave }) => {
         throw new Error(errorData.error || "Erro ao atualizar aluguel");
       }
 
-      // Mostrar notificação de sucesso
       toast({
         title: "Aluguel Alterado!",
         description: "As alterações foram salvas com sucesso.",
       });
 
-      // Atualizar o estado imediatamente
+      // Atualiza o estado no pai
       onSave(rental);
 
-      // Fechar o modal
       setTimeout(() => {
         onClose();
       }, 500);
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || "Erro ao salvar alterações");
       console.error("Erro ao atualizar:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteRental = async () => {
+    if (!confirm("Tem certeza que deseja excluir este aluguel?")) return;
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const rentalId = rental._id || rental.id;
+
+      const response = await fetch(
+        `http://localhost:5000/api/rentals/${rentalId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erro ao excluir aluguel");
+      }
+
+      toast({
+        title: "Aluguel excluído",
+        description: "O aluguel foi removido com sucesso.",
+      });
+
+      // --- CORREÇÃO AQUI ---
+      // Em vez de onSave(null), chamamos onDelete passando o ID
+      if (onDelete) {
+        onDelete(rentalId);
+      }
+
+      // Fecha o modal imediatamente
+      onClose();
+      
+    } catch (err) {
+      setError(err.message || "Erro ao excluir");
+      console.error("Erro ao excluir:", err);
     } finally {
       setLoading(false);
     }
@@ -132,7 +176,11 @@ export const RentalModal = ({ open, onClose, rental, onSave }) => {
             <Label htmlFor="materiais">Materiais</Label>
             <Input
               id="materiais"
-              value={Array.isArray(rental.materiais) ? rental.materiais.join(", ") : rental.materiais || ""}
+              value={
+                Array.isArray(rental.materiais)
+                  ? rental.materiais.join(", ")
+                  : rental.materiais || ""
+              }
               disabled
               className="bg-muted"
             />
@@ -199,21 +247,31 @@ export const RentalModal = ({ open, onClose, rental, onSave }) => {
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-4">
-          <Button onClick={onClose} variant="outline">
-            Fechar
-          </Button>
-          <Button 
-            onClick={updateRental} 
+        <div className="flex justify-between items-center pt-4 mt-2 border-t">
+          <Button
+            variant="destructive"
+            onClick={deleteRental}
             disabled={loading}
-            className="bg-blue-500 hover:bg-blue-600"
+            className="bg-red-600 hover:bg-red-700"
           >
-            {loading ? "Salvando..." : "Salvar"}
+            Excluir
           </Button>
+
+          <div className="flex gap-2">
+            <Button onClick={onClose} variant="outline">
+              Cancelar
+            </Button>
+
+            <Button
+              onClick={updateRental}
+              disabled={loading}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
+              {loading ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 };
-
-
