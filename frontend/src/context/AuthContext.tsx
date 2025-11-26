@@ -1,118 +1,137 @@
-// Em @/contexts/AuthContext.tsx (ou onde seu contexto está)
-
-import { ReactNode, createContext, useEffect, useState, useContext } from "react";
 import {
-  onAuthStateChanged,
-  signOut,
-  User,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-} from "firebase/auth";
-import { auth, db } from "@/firebaseConfig"; // 1. Importe o 'db'
-import { doc, setDoc, serverTimestamp } from "firebase/firestore"; // 2. Importe funções do Firestore
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
-// Tipagem do contexto
-interface AuthContextType {
+// ✅ MUDANÇA CRÍTICA:
+// Se existir uma variável de ambiente (Vercel), usa ela. Se não, usa localhost.
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  company?: string;
+};
+
+type AuthContextType = {
   user: User | null;
-  loadingAuth: boolean;
+  token: string | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  // 3. Atualize a tipagem da função register
   register: (
+    name: string,
     email: string,
     password: string,
-    name: string,
-    company: string,
+    company?: string
   ) => Promise<void>;
-  forgotPassword: (email: string) => Promise<void>;
-  logout: () => Promise<void>;
-}
+  logout: () => void;
+};
 
-// Criando contexto
 export const AuthContext = createContext<AuthContextType | null>(null);
 
-// Provider
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser ?? null);
-      setLoadingAuth(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+  const performLogout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    delete axios.defaults.headers.common["Authorization"];
+    navigate("/login");
   };
 
-  // 4. ATUALIZE A FUNÇÃO DE REGISTRO
-  const register = async (
-    email: string,
-    password: string,
-    name: string,
-    company: string,
-  ) => {
-    try {
-      // Parte 1: Criar o usuário no Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      const user = userCredential.user;
+  useEffect(() => {
+    const savedToken = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
 
-      // Parte 2: Salvar os dados extras no Cloud Firestore
-      // Criamos uma referência para um novo documento na coleção "users"
-      // O ID do documento será o mesmo UID do usuário no Auth
-      const userDocRef = doc(db, "users", user.uid);
+    if (savedToken && savedUser && savedToken !== "undefined") {
+      setToken(savedToken);
+      setUser(JSON.parse(savedUser));
+      axios.defaults.headers.common["Authorization"] = `Bearer ${savedToken}`;
+    } else {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    }
 
-      // Salvamos os dados
-      await setDoc(userDocRef, {
-        uid: user.uid,
-        email: user.email,
-        name: name, // Dado extra do formulário
-        company: company, // Dado extra do formulário
-        createdAt: serverTimestamp(), // Data de criação
-      });
-    } catch (error) {
-      console.error("Erro ao registrar:", error);
-      // Re-lança o erro para ser pego no formulário
-      throw error;
+    setLoading(false);
+
+    const interceptorId = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+          console.warn("Sessão expirada. Realizando logout.");
+          performLogout();
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.response.eject(interceptorId);
+    };
+  }, [navigate]);
+
+  const login = async (email: string, password: string) => {
+    const res = await axios.post("/auth/login", { email, password });
+
+    const newToken = res.data?.token;
+    const newUser = res.data?.user;
+
+    if (!newToken) {
+      throw new Error("Erro de comunicação: Token não recebido.");
+    }
+
+    setToken(newToken);
+    setUser(newUser);
+
+    localStorage.setItem("token", newToken);
+    localStorage.setItem("user", JSON.stringify(newUser));
+
+    axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+
+    navigate("/");
+  };
+
+  const register = async (name: string, email: string, password: string, company?: string) => {
+    const res = await axios.post("/auth/register", { name, email, password, company });
+
+    if (res.data.token && res.data.user) {
+        const newToken = res.data.token;
+        const newUser = res.data.user;
+
+        setToken(newToken);
+        setUser(newUser);
+
+        localStorage.setItem("token", newToken);
+        localStorage.setItem("user", JSON.stringify(newUser));
+
+        axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+        
+        navigate("/");
+    } else {
+        navigate("/login"); 
     }
   };
 
-  const forgotPassword = async (email: string) => {
-    await sendPasswordResetEmail(auth, email);
-  };
-
-  const logout = async () => {
-    await signOut(auth);
-  };
-
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loadingAuth,
-        login,
-        register, // 5. 'register' agora é a nova função
-        forgotPassword,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout: performLogout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Hook useAuth (continua o mesmo)
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
-  }
+  if (!context) throw new Error("useAuth deve ser usado dentro de AuthProvider");
   return context;
 };

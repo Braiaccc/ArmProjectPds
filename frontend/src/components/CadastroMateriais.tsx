@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Package, X, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios"; // ✅ Usando Axios
 
 interface Material {
   _id: string;
@@ -21,7 +22,7 @@ interface Material {
 interface FormData {
   nome: string;
   categoria: string;
-  valorDiario: string; // Alterado para string para melhor gestão do input
+  valorDiario: string;
   codSerie: string;
   observacoes: string;
   status: "disponivel" | "alugado" | "manutencao";
@@ -46,12 +47,9 @@ export const CadastroMateriais: React.FC = () => {
   const fetchMateriais = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:5000/api/materiais");
-      if (!response.ok) {
-        throw new Error("Falha ao buscar os materiais.");
-      }
-      const data = await response.json();
-      setMateriais(data);
+      // ✅ Substituído fetch por axios.get
+      const response = await axios.get("/materiais");
+      setMateriais(response.data);
     } catch (error) {
       console.error("Erro ao carregar materiais:", error);
       toast({
@@ -77,7 +75,7 @@ export const CadastroMateriais: React.FC = () => {
   };
 
   const handleSave = async (e: FormEvent) => {
-    e.preventDefault(); // Impede o recarregamento da página
+    e.preventDefault();
 
     if (!formData.nome.trim()) {
       toast({
@@ -90,37 +88,24 @@ export const CadastroMateriais: React.FC = () => {
 
     const materialPayload = {
       ...formData,
-      valorDiario: Number(formData.valorDiario) || 0, // Converte para número e define 0 se for inválido
+      valorDiario: Number(formData.valorDiario) || 0,
     };
 
-    const method = editingMaterial ? "PUT" : "POST";
-    const url = editingMaterial
-      ? `http://localhost:5000/api/materiais/${editingMaterial._id}`
-      : "http://localhost:5000/api/materiais";
-
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(materialPayload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erro ao ${editingMaterial ? "editar" : "salvar"} o material.`);
-      }
-
       if (editingMaterial) {
-        // Atualizar a lista localmente sem recarregar
+        // ✅ Axios PUT
+        await axios.put(`/materiais/${editingMaterial._id}`, materialPayload);
+        
         setMateriais(materiais.map(m => m._id === editingMaterial._id ? { ...editingMaterial, ...materialPayload } : m));
         toast({
           title: "Material Alterado!",
           description: `Material ${formData.nome} atualizado com sucesso!`,
         });
       } else {
-        // Para novo material, recarregar
-        fetchMateriais();
+        // ✅ Axios POST
+        await axios.post("/materiais", materialPayload);
+        
+        fetchMateriais(); // Recarrega para pegar o ID gerado
         toast({
           title: "Sucesso!",
           description: `Material ${formData.nome} criado com sucesso!`,
@@ -139,19 +124,12 @@ export const CadastroMateriais: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    // Usando uma modal customizada em vez de window.confirm
-    // Por exemplo, uma modal para confirmar a ação
-    // Por enquanto, manterei o window.confirm com um aviso para o usuário
     if (!window.confirm("Tem certeza que deseja excluir este material?")) {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:5000/api/materiais/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        throw new Error("Erro ao excluir o material.");
-      }
+      // ✅ Axios DELETE
+      await axios.delete(`/materiais/${id}`);
 
       toast({
         title: "Excluído!",
@@ -174,7 +152,7 @@ export const CadastroMateriais: React.FC = () => {
     setFormData({
       nome: material.nome,
       categoria: material.categoria,
-      valorDiario: material.valorDiario.toString(), // Converte para string para o input
+      valorDiario: material.valorDiario.toString(),
       codSerie: material.codSerie,
       observacoes: material.observacoes,
       status: material.status,
@@ -373,14 +351,12 @@ export const CadastroMateriais: React.FC = () => {
                       <p className="text-muted-foreground">Categoria:</p>
                       <p>{material.categoria}</p>
                     </div>
-
                     <div>
                       <p className="text-muted-foreground">Valor Diário:</p>
                       <p className="font-medium">
                         R$ {material.valorDiario.toFixed(2)}
                       </p>
                     </div>
-
                     <div>
                       <p className="text-muted-foreground">Código/Série:</p>
                       <p>{material.codSerie}</p>

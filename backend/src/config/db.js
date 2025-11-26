@@ -1,18 +1,21 @@
 const { MongoClient } = require('mongodb');
 
-// URL de conexão com o seu banco de dados MongoDB
-const uri = "mongodb://localhost:27017/rentalsdb";
+// Usa a variável de ambiente na nuvem OU localhost se estiver no seu PC
+const uri = process.env.MONGO_URI_RENTALS || "mongodb://localhost:27017/rentalsdb";
 const client = new MongoClient(uri);
 
 async function connectToRentalsDB() {
-  try {
-    await client.connect();
-    console.log("Conectado ao MongoDB!");
-    return client.db();
-  } catch (error) {
-    console.error("Erro ao conectar ao MongoDB:", error);
-    process.exit(1); // Encerra a aplicação em caso de erro
-  }
+  try {
+    // Em produção, a conexão pode já estar aberta ou gerenciar pool
+    if (!client.topology || !client.topology.isConnected()) {
+        await client.connect();
+        console.log("Conectado ao MongoDB (Rentals)!");
+    }
+    return client.db();
+  } catch (error) {
+    console.error("Erro ao conectar ao MongoDB (Rentals):", error);
+    process.exit(1);
+  }
 }
 
 module.exports = { connectToRentalsDB, client };

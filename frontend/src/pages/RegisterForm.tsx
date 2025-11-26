@@ -20,8 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/firebaseConfig";
+// ✅ Importamos do nosso contexto, não do Firebase
 import { useAuth } from "@/context/AuthContext";
 
 interface RegisterFormData {
@@ -41,6 +40,7 @@ const RegisterForm = ({ onBackToLogin }: RegisterFormProps) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { toast } = useToast();
 
+  // ✅ Usamos o register do nosso contexto customizado
   const { register: registerUser } = useAuth();
 
   const {
@@ -52,26 +52,29 @@ const RegisterForm = ({ onBackToLogin }: RegisterFormProps) => {
 
   const password = watch("password");
 
-const onSubmit = async (data: RegisterFormData) => {
-  try {
-    await registerUser(data.email, data.password, data.name, data.company);
+  const onSubmit = async (data: RegisterFormData) => {
+    try {
+      // Chama a API do Node.js
+      await registerUser(data.name, data.email, data.password, data.company);
 
-    toast({
-      title: "Conta criada!",
-      description: `Bem-vindo ao ARM, ${data.name}`,
-    });
-  } catch (error: any) {
+      toast({
+        title: "Conta criada!",
+        description: `Bem-vindo ao ARM, ${data.name}`,
+      });
+      // AuthContext fará o redirecionamento
+    } catch (error: any) {
+      console.error(error);
+      const errorMsg = error.response?.data?.error || "Erro ao criar conta.";
+      
       toast({
         title: "Erro ao registrar",
-        description:
-          error.code === "auth/email-already-in-use"
-            ? "Este email já está em uso."
+        description: errorMsg.includes("Email já cadastrado") 
+            ? "Este email já está em uso." 
             : "Verifique os dados e tente novamente.",
         variant: "destructive",
-    });
-  }
-};
-
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-background flex items-center justify-center p-4">
@@ -141,6 +144,20 @@ const onSubmit = async (data: RegisterFormData) => {
                     {errors.email.message}
                   </p>
                 )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="company">Empresa (Opcional)</Label>
+                <div className="relative">
+                  <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="company"
+                    type="text"
+                    placeholder="Sua empresa"
+                    className="pl-10 transition-smooth focus:shadow-elegant focus:border-primary"
+                    {...register("company")}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">

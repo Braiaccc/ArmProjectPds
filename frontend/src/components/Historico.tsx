@@ -1,33 +1,42 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, Calendar } from "lucide-react";
+import { Eye, Calendar, FilterX, DollarSign } from "lucide-react"; 
 import { RentalModal } from "./RentalModal";
+import axios from "axios";
 
-export const Historico = ({ rentalAdded }) => {
-  const [alugueis, setAlugueis] = useState([]);
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
+
+export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
+  const [alugueis, setAlugueis] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [monthFilter, setMonthFilter] = useState("todos");
+  const [yearFilter, setYearFilter] = useState("todos");
   const [loading, setLoading] = useState(true);
   const [selectedRental, setSelectedRental] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const fetchRentals = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/rentals");
-      if (!response.ok) {
-        throw new Error('Falha ao buscar os aluguéis.');
-      }
-    
-      const data = await response.json();
+      const response = await axios.get("/rentals");
 
-      const hoje = new Date().toLocaleDateString('pt-BR');
+      // ✅ CORREÇÃO AQUI: Ordenar EXCLUSIVAMENTE pela data de retirada
+      // Isso garante que Novembro sempre fique acima de Fevereiro, independente de quando foi cadastrado
+      const sortedData = response.data.sort((a: any, b: any) => {
+        const dateA = new Date(a.dataRetirada).getTime();
+        const dateB = new Date(b.dataRetirada).getTime();
+        // Ordenação Decrescente (Mais recente -> Mais antigo)
+        return dateB - dateA;
+      });
 
-      
-      setAlugueis(data);
+      setAlugueis(sortedData);
     } catch (error) {
       console.error("Erro ao carregar histórico:", error);
     } finally {
@@ -35,69 +44,126 @@ export const Historico = ({ rentalAdded }) => {
     }
   };
 
-  const handleEditRental = (rental) => {
+  const availableYears = useMemo(() => {
+    const years = new Set(alugueis.map(item => new Date(item.dataRetirada).getFullYear()));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [alugueis]);
+
+  const handleEditRental = (rental: any) => {
     setSelectedRental(rental);
     setModalOpen(true);
   };
 
-  const handleSaveRental = (updatedRental) => {
+  const handleSaveRental = (updatedRental: any) => {
+    if (!updatedRental || !updatedRental._id) return;
+
     setSelectedRental(updatedRental);
-    // Atualizar a lista sem recarregar
-    setAlugueis(alugueis.map(r => r._id === updatedRental._id ? updatedRental : r));
+    setAlugueis(prevAlugueis => {
+        const newList = prevAlugueis.map(r => r._id === updatedRental._id ? updatedRental : r);
+        // Reordena ao salvar edição também
+        return newList.sort((a: any, b: any) => {
+            const dateA = new Date(a.dataRetirada).getTime();
+            const dateB = new Date(b.dataRetirada).getTime();
+            return dateB - dateA;
+        });
+    });
   };
 
-  const formatDate = (dateStr) => {
+  const handleDeleteRental = (deletedId: string) => {
+    setAlugueis(prev => prev.filter(item => item._id !== deletedId));
+    setModalOpen(false);
+  };
+
+  const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
-    // Se já estiver no formato YYYY-MM-DD, cria Date local usando partes
-    const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
-    let d;
-    if (m) {
-      const yyyy = Number(m[1]);
-      const mm = Number(m[2]);
-      const dd = Number(m[3]);
-      // cria data local (evita shift por timezone)
-      d = new Date(yyyy, mm - 1, dd);
-    } else {
-      d = new Date(dateStr);
+    // Ajuste para evitar problemas de fuso horário em strings YYYY-MM-DD simples
+    const [year, month, day] = dateStr.split('-');
+    if (year && month && day) {
+        return `${day}/${month}/${year}`;
     }
-
-    if (!d || isNaN(d.getTime())) return String(dateStr);
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${dd}-${mm}-${yyyy}`;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('pt-BR');
   };
 
-    const getPaymentBadge = (pagamento: string) => {
-      switch (pagamento) {
-        case "pago":
-          return (
-            <Badge className="bg-success text-success-foreground">Pago</Badge>
-          );
-        case "pendente":
-          return (
-            <Badge className="bg-warning text-warning-foreground">Pendente</Badge>
-          );
-        case "parcial":
-          return <Badge className="bg-info text-info-foreground">Parcial</Badge>;
-        default:
-          return <Badge variant="outline">{pagamento}</Badge>;
-      }
-    };
+  const getPaymentBadge = (pagamento: string) => {
+    switch (pagamento) {
+      case "pago":
+        return <Badge className="bg-green-500 hover:bg-green-600 text-white">Pago</Badge>;
+      case "pendente":
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">Pendente</Badge>;
+      case "parcial":
+        return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Parcial</Badge>;
+      default:
+        return <Badge variant="outline">{pagamento}</Badge>;
+    }
+  };
 
-  // UseEffect para buscar os dados da API quando o componente for montado ou quando um novo aluguel for adicionado
   useEffect(() => {
     fetchRentals();
-  }, [rentalAdded]); // Adicionado rentalAdded como dependência
+  }, [rentalAdded]);
 
+  // --- LÓGICA DE FILTRAGEM ---
   const filteredHistorico = alugueis.filter(item => {
     const matchesSearch = item.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item._id && item._id.toLowerCase().includes(searchTerm.toLowerCase())); // MongoDB usa _id
-    const matchesStatus = statusFilter === "todos" || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
+      (item._id && item._id.toLowerCase().includes(searchTerm.toLowerCase())); 
+    
+    const matchesPayment = statusFilter === "todos" || item.pagamento === statusFilter;
+
+    // Ajuste seguro para extração de data
+    const d = new Date(item.dataRetirada);
+    // Adiciona 'GMT' para garantir que pegue o dia/mês correto da string se necessário, 
+    // mas para ordenação e filtro simples o Date object padrão resolve se o input for YYYY-MM-DD
+    const itemYear = d.getFullYear().toString();
+    const itemMonth = d.getMonth().toString(); 
+
+    const matchesYear = yearFilter === "todos" || itemYear === yearFilter;
+    const matchesMonth = monthFilter === "todos" || itemMonth === monthFilter;
+
+    return matchesSearch && matchesPayment && matchesYear && matchesMonth;
   });
 
-  const totalValor = filteredHistorico.reduce((sum, item) => sum + item.valor, 0);
+  const totalValorGeral = filteredHistorico.reduce((sum, item) => sum + item.valor, 0);
+
+  const groupedRentals = useMemo(() => {
+    const groups: any[] = [];
+    
+    filteredHistorico.forEach(rental => {
+      // Assegura parsing correto da data para exibição do grupo
+      // Se a string for '2025-02-04', new Date cria meia-noite UTC. 
+      // getMonth() usa o timezone local, o que pode cair no dia anterior se for UTC-3.
+      // Solução robusta para agrupar por string YYYY-MM-DD:
+      const [ano, mes] = rental.dataRetirada.split('-'); 
+      const monthIndex = parseInt(mes) - 1; // 0-11
+      
+      const monthName = MESES[monthIndex] || MESES[0];
+      const year = parseInt(ano);
+      const groupTitle = `${monthName} ${year}`;
+
+      let lastGroup = groups[groups.length - 1];
+      
+      if (!lastGroup || lastGroup.title !== groupTitle) {
+        lastGroup = {
+          title: groupTitle,
+          rentals: [],
+          subtotal: 0
+        };
+        groups.push(lastGroup);
+      }
+
+      lastGroup.rentals.push(rental);
+      lastGroup.subtotal += rental.valor;
+    });
+
+    return groups;
+  }, [filteredHistorico]);
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("todos");
+    setMonthFilter("todos");
+    setYearFilter("todos");
+  }
 
   if (loading) {
     return (
@@ -108,66 +174,128 @@ export const Historico = ({ rentalAdded }) => {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      <Card className="rounded-xl shadow-lg">
-        <CardHeader className="bg-gray-50/50 rounded-t-xl">
-          <CardTitle className="flex items-center gap-2 text-2xl font-bold text-gray-800">
-            <Calendar className="h-6 w-6 text-indigo-600" />
-            Histórico de Aluguéis
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+      <Card className="rounded-xl shadow-lg border-0 ring-1 ring-gray-200">
+        <CardHeader className="bg-gray-50/50 rounded-t-xl border-b pb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <CardTitle className="flex items-center gap-2 text-2xl font-bold text-gray-800">
+              <Calendar className="h-6 w-6 text-indigo-600" />
+              Histórico de Aluguéis
+            </CardTitle>
+            
+            {(searchTerm || statusFilter !== "todos" || monthFilter !== "todos" || yearFilter !== "todos") && (
+               <Button variant="ghost" size="sm" onClick={clearFilters} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                 <FilterX className="w-4 h-4 mr-2"/> Limpar Filtros
+               </Button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
             <Input
-              placeholder="Buscar por cliente ou ID..."
+              placeholder="Buscar cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full md:w-auto flex-1 rounded-lg"
+              className="w-full rounded-lg bg-white"
             />
-            <div className="flex gap-2 w-full md:w-auto">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-[180px] rounded-lg">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="concluido">Concluído</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="parcial">Parcial</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            
+            <Select value={monthFilter} onValueChange={setMonthFilter}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Mês" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Meses</SelectItem>
+                {MESES.map((mes, index) => (
+                  <SelectItem key={index} value={String(index)}>{mes}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={yearFilter} onValueChange={setYearFilter}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Ano" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Anos</SelectItem>
+                {availableYears.map(year => (
+                  <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Financeiro" /> 
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos Pagamentos</SelectItem>
+                <SelectItem value="pago">Pago</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="parcial">Parcial</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div className="space-y-4">
-            {filteredHistorico.length > 0 ? (
-              filteredHistorico.map((item) => (
-                <div key={item._id} className="p-4 border border-gray-200 rounded-lg shadow-sm transition-transform transform hover:scale-[1.01] hover:shadow-md">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-lg">{item.cliente}</span>
-                    <Badge variant="outline" className="text-gray-600">{`ID: ${item._id}`}</Badge>
+        </CardHeader>
+
+        <CardContent className="p-6 bg-gray-50/30 min-h-[400px]">
+          <div className="space-y-8">
+            {groupedRentals.length > 0 ? (
+              groupedRentals.map((group, idx) => (
+                <div key={idx} className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-2 mt-2">
+                    <h3 className="text-lg font-bold text-indigo-900 flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                      {group.title}
+                    </h3>
+                    <span className="text-sm font-medium text-gray-500">
+                      Subtotal: <span className="text-green-600 font-bold">R$ {group.subtotal.toFixed(2)}</span>
+                    </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                    <p>Materiais: <span className="font-medium">{item.materiais.join(", ")}</span></p>
-                    <p>Período: <span className="font-medium">{formatDate(item.dataRetirada)} - {formatDate(item.dataDevolucao)}</span></p>
-                    <p>Valor: <span className="font-medium text-green-600">R$ {item.valor.toFixed(2)}</span></p>       
-                    <p>Pagamento: <span>{getPaymentBadge(item.pagamento)}</span></p>
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <Button size="sm" variant="ghost" className="text-indigo-600 hover:text-indigo-700" onClick={() => handleEditRental(item)}>
-                      <Eye className="h-4 w-4 mr-1" /> Ver Detalhes
-                    </Button>
+
+                  <div className="grid gap-3">
+                    {group.rentals.map((item: any) => (
+                      <div key={item._id} className="bg-white p-4 border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition-all hover:border-indigo-100 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                        
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-800 text-lg">{item.cliente}</span>
+                            {getPaymentBadge(item.pagamento)}
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            <span className="font-medium">Materiais:</span> {Array.isArray(item.materiais) ? item.materiais.join(", ") : item.materiais}
+                          </p>
+                          <p className="text-xs text-gray-400">ID: {item._id}</p>
+                        </div>
+
+                        <div className="flex flex-col md:items-end gap-1 text-sm">
+                            <div className="text-gray-600 bg-gray-50 px-2 py-1 rounded text-xs md:text-sm">
+                                {formatDate(item.dataRetirada)} até {formatDate(item.dataDevolucao)}
+                            </div>
+                            <div className="font-bold text-lg text-green-600">
+                                R$ {item.valor.toFixed(2)}
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-8 text-indigo-600 hover:text-indigo-700 p-0 justify-start md:justify-end" onClick={() => handleEditRental(item)}>
+                              <Eye className="h-4 w-4 mr-1" /> Detalhes
+                            </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-center text-gray-500">Nenhum aluguel encontrado.</p>
+              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <DollarSign className="h-12 w-12 mb-2 opacity-20" />
+                <p>Nenhum aluguel encontrado com os filtros atuais.</p>
+              </div>
             )}
           </div>
         </CardContent>
-        <CardContent className="bg-gray-50/50 rounded-b-xl py-4 px-6 mt-6">
-          <p className="font-bold text-lg text-gray-800">
-            Valor Total: <span className="text-green-600">R$ {totalValor.toFixed(2)}</span>
-          </p>
+
+        <CardContent className="bg-white border-t rounded-b-xl py-6 px-8">
+          <div className="flex justify-between items-center">
+              <span className="text-gray-500 font-medium">Total acumulado na visualização:</span>
+              <span className="text-2xl font-bold text-green-600">R$ {totalValorGeral.toFixed(2)}</span>
+          </div>
         </CardContent>
       </Card>
 
@@ -176,6 +304,7 @@ export const Historico = ({ rentalAdded }) => {
         onClose={() => setModalOpen(false)}
         rental={selectedRental}
         onSave={handleSaveRental}
+        onDelete={handleDeleteRental} 
       />
     </div>
   );

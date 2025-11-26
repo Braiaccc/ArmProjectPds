@@ -3,8 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle, Clock, Eye, Calendar } from "lucide-react";
 import { RentalModal } from "./RentalModal";
-
 import { useEffect, useState } from "react";
+import axios from "axios"; // Usando axios para aproveitar a config de Auth
 
 export const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -14,32 +14,35 @@ export const Dashboard = () => {
     pendingPayment: 0,
   });
 
-  const [recentRentals, setRecentRentals] = useState([]);
+  // Inicializa com array vazio para evitar o erro .map na primeira renderização
+  const [recentRentals, setRecentRentals] = useState<any[]>([]);
+  const [selectedRental, setSelectedRental] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
-    // 1) Busca estatísticas do Dashboard
     const fetchDashboardStats = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:5000/api/rentals/stats/dashboard"
-        );
-        const result = await response.json();
-        setStats(result);
+        const response = await axios.get("/rentals/stats/dashboard");
+        setStats(response.data);
       } catch (error) {
         console.error("Erro ao buscar estatísticas:", error);
       }
     };
 
-    // 2) Busca aluguéis recentes
     const fetchRecentRentals = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:5000/api/rentals/recent"
-        );
-        const result = await response.json();
-        setRecentRentals(result);
+        const response = await axios.get("/rentals/recent");
+        
+        // CORREÇÃO DO ERRO: Verifica se a resposta é realmente um array
+        if (Array.isArray(response.data)) {
+            setRecentRentals(response.data);
+        } else {
+            console.error("API não retornou um array de aluguéis:", response.data);
+            setRecentRentals([]); // Fallback para array vazio
+        }
       } catch (error) {
         console.error("Erro ao buscar aluguéis recentes:", error);
+        setRecentRentals([]); // Em caso de erro, garante array vazio
       }
     };
 
@@ -48,22 +51,20 @@ export const Dashboard = () => {
   }, []);
 
   const dashboardStats = [
-    // foi retirado status "Ativos" e "Atrasados" do dashboard conforme solicitado
-
     { title: "Em Dia", value: stats.onTime, icon: CheckCircle },
     { title: "Pagamentos Pendentes", value: stats.pendingPayment, icon: Clock },
+    { title: "Ativos", value: stats.active, icon: Calendar }, 
+    { title: "Atrasados", value: stats.late, icon: AlertTriangle },
   ];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "ativo":
-        return (
-          <Badge variant="secondary" className="bg-info/10 text-info">
-            Em Andamento
-          </Badge>
-        );
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Em Andamento</Badge>;
       case "atrasado":
         return <Badge variant="destructive">Atrasado</Badge>;
+      case "concluido":
+        return <Badge className="bg-gray-500">Concluído</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -72,51 +73,31 @@ export const Dashboard = () => {
   const getPaymentBadge = (pagamento: string) => {
     switch (pagamento) {
       case "pago":
-        return (
-          <Badge className="bg-success text-success-foreground">Pago</Badge>
-        );
+        return <Badge className="bg-green-500 hover:bg-green-600">Pago</Badge>;
       case "pendente":
-        return (
-          <Badge className="bg-warning text-warning-foreground">Pendente</Badge>
-        );
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pendente</Badge>;
       case "parcial":
-        return <Badge className="bg-info text-info-foreground">Parcial</Badge>;
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Parcial</Badge>;
       default:
         return <Badge variant="outline">{pagamento}</Badge>;
     }
   };
 
-  const [selectedRental, setSelectedRental] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
-
-  const handleEditRental = (rental) => {
+  const handleEditRental = (rental: any) => {
     setSelectedRental(rental);
     setModalOpen(true);
   };
 
-  const handleSaveRental = (updatedRental) => {
+  const handleSaveRental = (updatedRental: any) => {
     setSelectedRental(updatedRental);
-    // Atualizar a lista sem recarregar
-    setRecentRentals(recentRentals.map(r => r._id === updatedRental._id ? updatedRental : r));
+    // Atualiza a lista localmente
+    setRecentRentals(prev => prev.map(r => r._id === updatedRental._id ? updatedRental : r));
   };
 
-  const formatDate = (dateStr) => {
+  const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
-    const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
-    let d;
-    if (m) {
-      const yyyy = Number(m[1]);
-      const mm = Number(m[2]);
-      const dd = Number(m[3]);
-      d = new Date(yyyy, mm - 1, dd);
-    } else {
-      d = new Date(dateStr);
-    }
-    if (!d || isNaN(d.getTime())) return String(dateStr);
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${dd}-${mm}-${yyyy}`;
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? dateStr : date.toLocaleDateString('pt-BR');
   };
 
   return (
@@ -148,37 +129,42 @@ export const Dashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {recentRentals.map((rental) => (
-              <div
-                key={rental.id}
-                className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium">{rental.id}</span>
-                    {getStatusBadge(rental.status)}
-                    {getPaymentBadge(rental.pagamento)}
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    {rental.cliente}
-                  </p>
-                  <p className="text-sm">
-                    Materiais: {rental.materiais.join(", ")}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Retirada: {formatDate(rental.dataRetirada)} |
-                    Devolução: {formatDate(rental.dataDevolucao)}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEditRental(rental)}
+            {/* O ERRO DE .MAP ACONTECIA AQUI SE recentRentals FOSSE null/objeto */}
+            {Array.isArray(recentRentals) && recentRentals.length > 0 ? (
+              recentRentals.map((rental) => (
+                <div
+                  key={rental._id || rental.id}
+                  className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border"
                 >
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm text-gray-500">#{String(rental._id).slice(-6)}</span>
+                      {getStatusBadge(rental.status)}
+                      {getPaymentBadge(rental.pagamento)}
+                    </div>
+                    <p className="font-semibold">{rental.cliente}</p>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Materiais: {Array.isArray(rental.materiais) ? rental.materiais.join(", ") : rental.materiais}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Retirada: {formatDate(rental.dataRetirada)} |
+                      Devolução: {formatDate(rental.dataDevolucao)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEditRental(rental)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))
+            ) : (
+                <p className="text-muted-foreground text-sm text-center py-4">
+                    {recentRentals === null ? "Carregando..." : "Nenhum aluguel recente encontrado."}
+                </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -188,6 +174,7 @@ export const Dashboard = () => {
         onClose={() => setModalOpen(false)}
         rental={selectedRental}
         onSave={handleSaveRental}
+        onDelete={(id) => setRecentRentals(prev => prev.filter(r => r._id !== id))}
       />
     </div>
   );

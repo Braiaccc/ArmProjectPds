@@ -5,17 +5,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-// ✅ ROTA PRIVADA: só deixa acessar se tiver logado
-import { useContext } from "react";
 import AuthContainer from "@/pages/AuthContainer";
-import { AuthContext } from "@/context/AuthContext";
+import { AuthProvider } from "@/context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 
 const queryClient = new QueryClient();
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
-  const { user, loadingAuth } = useContext(AuthContext);
+  const { user, loading } = useAuth();
 
-  if (loadingAuth) return null; // opcional: colocar um loading
+  if (loading) return <div className="flex items-center justify-center h-screen">Carregando...</div>;
 
   return user ? children : <AuthContainer />;
 };
@@ -25,21 +24,31 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      
+      {/* CORREÇÃO FUNDAMENTAL AQUI: */}
+      {/* O BrowserRouter deve envolver o AuthProvider */}
       <BrowserRouter>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <PrivateRoute>
-                <Index />
-              </PrivateRoute>
-            }
-          />
+        <AuthProvider>
+          <Routes>
+            {/* ✅ ROTA LOGADA */}
+            <Route
+              path="/"
+              element={
+                <PrivateRoute>
+                  <Index />
+                </PrivateRoute>
+              }
+            />
 
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* ✅ ROTA LOGIN */}
+            <Route path="/login" element={<AuthContainer />} />
+
+            {/* ✅ NOT FOUND */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
+      
     </TooltipProvider>
   </QueryClientProvider>
 );

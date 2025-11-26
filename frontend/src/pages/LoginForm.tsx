@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { auth } from "@/firebaseConfig";
-import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 import { useForm } from "react-hook-form";
 import { Eye, EyeOff, Mail, Lock, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,10 +12,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { FcGoogle } from 'react-icons/fc';
 import { useAuth } from "@/context/AuthContext";
 
-
+// Interface para os dados do formulário
 interface LoginFormData {
   email: string;
   password: string;
@@ -28,29 +25,15 @@ interface LoginFormProps {
   onForgotPasswordClick: () => void;
 }
 
-// const onSubmit = async (data: LoginFormData) => {
-//   try {
-//     await signInWithEmailAndPassword(auth, data.email, data.password);
-
-//     toast({
-//       title: "Login realizado!",
-//       description: `Bem-vindo ao ARM, ${data.email}`,
-//     });
-//   } catch (error) {
-//     toast({
-//       title: "Erro ao fazer login",
-//       description: "Email ou senha incorretos.",
-//       variant: "destructive",
-//     });
-//   }
-// };
-
 const LoginForm = ({
   onRegisterClick,
   onForgotPasswordClick,
 }: LoginFormProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
+  
+  // ✅ Usamos o login do nosso AuthContext (Node.js)
+  const { login } = useAuth(); 
 
   const {
     register,
@@ -60,48 +43,18 @@ const LoginForm = ({
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      // 5. Chame a função 'login' do contexto
       await login(data.email, data.password);
 
       toast({
         title: "Login realizado com sucesso!",
         description: `Bem-vindo de volta!`,
       });
+      // O redirecionamento já acontece dentro do AuthContext
     } catch (error: any) {
+      console.error(error);
       toast({
         title: "Erro ao fazer login",
-        description: "Email ou senha incorretos.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // const loginGoogle = async () => {
-  //   const provider = new GoogleAuthProvider();
-
-  //   try {
-  //     const result = await signInWithPopup(auth, provider);
-
-  //     console.log("Usuario logado:", result.user);
-  //   } catch (error) {
-  //     console.log("Erro ao logar:", error);
-  //   }
-  // };
-
-  const handleGoogleLogin = async () => {
-    try {
-      // Supondo que você moveu 'loginWithGoogle' para o contexto
-      // await loginWithGoogle();
-      
-      // Ou mantenha a lógica aqui e mova para o contexto depois
-       const provider = new GoogleAuthProvider();
-       await signInWithPopup(auth, provider);
-      // Aqui você também deveria salvar no Firestore se for o primeiro login
-      
-    } catch (error) {
-      console.log("Erro ao logar com Google:", error);
-       toast({
-        title: "Erro no login com Google",
+        description: error.response?.data?.error || "Email ou senha incorretos.",
         variant: "destructive",
       });
     }
@@ -198,37 +151,15 @@ const LoginForm = ({
 
               <div className="flex flex-col items-center gap-3 text-center">
                 <Button
-        type="submit" // 7. IMPORTANTE: Mude o tipo do botão "Entrar" para 'submit'
-        disabled={isSubmitting}
-        className="w-full bg-blue-500 hover:shadow-elegant hover:scale-[1.02] transition-all duration-300 font-medium"
-      >
-        {isSubmitting ? "Entrando..." : "Entrar"}
-      </Button>
-
-                <span>OU</span>
-
-               
-<Button
-        onClick={handleGoogleLogin} // 8. Use a função de login do Google
-        type="button"
-  className="w-full 
-             bg-white 
-             text-black 
-             border border-gray-300 
-             hover:bg-gray-100 
-             hover:scale-[1.02] 
-             transition-all duration-300 
-             font-medium 
-             flex items-center justify-center 
-             gap-1  
-             !h-10 !px-4 !py-2"
->
-  <FcGoogle className="h-5 w-5" />
-  <span>Entrar com Google</span>
-</Button>
-              
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-blue-500 hover:shadow-elegant hover:scale-[1.02] transition-all duration-300 font-medium"
+                >
+                  {isSubmitting ? "Entrando..." : "Entrar"}
+                </Button>
+                
+                {/* Removemos Google Login pois requer config extra no backend */}
               </div>
-              
             </form>
 
             <div className="text-center pt-4 border-t border-border">

@@ -1,91 +1,55 @@
 const { connectToRentalsDB } = require('../../config/db');
 const { ObjectId } = require('mongodb');
 
+/**
+ * Retorna as estatísticas do Dashboard baseadas apenas nos dados do usuário logado.
+ */
 async function getDashboardStats(req, res) {
   try {
     const db = await connectToRentalsDB();
     const rentalsCollection = db.collection('rentals');
-
-    // Agora conta apenas aluguéis cujo prazo ainda está válido (dataDevolucao >= hoje)
+    
+    // ID do usuário vindo do Token JWT (Middleware)
+    const userId = req.user.userId;
     const hoje = new Date();
 
-    // total de aluguéis em andamento (status ativo) e ainda não vencidos
+    // Helper de filtro de data para reutilizar lógica
+    // Lógica: Se dataDevolucao existe, converte para Date, senão usa data zero.
+    const dateConversionLogic = {
+      $toDate: {
+        $cond: [
+          { $and: [{ $ne: ["$dataDevolucao", ""] }, { $ne: ["$dataDevolucao", null] }] },
+          "$dataDevolucao",
+          new Date(0) // Data fallback
+        ]
+      }
+    };
+
+    // 1. Total Ativos (userId + status ativo + data >= hoje)
     const totalActive = await rentalsCollection.countDocuments({
-      $expr: {
-        $and: [
-          {
-            $gte: [
-              {
-                $cond: [
-                  { $and: [{ $ne: ["$dataDevolucao", ""] }, { $ne: ["$dataDevolucao", null] }] },
-                  { $toDate: "$dataDevolucao" },
-                  new Date(0)
-                ]
-              },
-              hoje
-            ]
-          },
-          { $eq: ["$status", "ativo"] }
-        ]
-      }
+      userId: userId, // 🔒 Segurança
+      status: "ativo",
+      $expr: { $gte: [dateConversionLogic, hoje] }
     });
 
-    // total de aluguéis atrasados (dataDevolucao < hoje)
+    // 2. Total Atrasados (userId + data < hoje)
     const totalLate = await rentalsCollection.countDocuments({
-      $expr: {
-        $lt: [
-          {
-            $cond: [
-              { $and: [{ $ne: ["$dataDevolucao", ""] }, { $ne: ["$dataDevolucao", null] }] },
-              { $toDate: "$dataDevolucao" },
-              new Date(0)
-            ]
-          },
-          hoje
-        ]
-      }
+      userId: userId, // 🔒 Segurança
+      $expr: { $lt: [dateConversionLogic, hoje] }
     });
 
-    // Em Dia: aluguéis cujo prazo ainda está válido e pagamento está marcado como 'pago'
+    // 3. Em Dia (userId + pago + data >= hoje)
     const totalOnTime = await rentalsCollection.countDocuments({
-      $expr: {
-        $and: [
-          {
-            $gte: [
-              {
-                $cond: [
-                  { $and: [{ $ne: ["$dataDevolucao", ""] }, { $ne: ["$dataDevolucao", null] }] },
-                  { $toDate: "$dataDevolucao" },
-                  new Date(0)
-                ]
-              },
-              hoje
-            ]
-          },
-          { $eq: ["$pagamento", "pago"] }
-        ]
-      }
+      userId: userId, // 🔒 Segurança
+      pagamento: "pago",
+      $expr: { $gte: [dateConversionLogic, hoje] }
     });
 
-    // Pagamentos pendentes: ainda no prazo e com pagamento pendente ou parcial
+    // 4. Pagamento Pendente (userId + pendente/parcial + data >= hoje)
     const totalPendingPayment = await rentalsCollection.countDocuments({
-      $expr: {
-        $and: [
-          {
-            $gte: [
-              {
-                $cond: [
-                  { $and: [{ $ne: ["$dataDevolucao", ""] }, { $ne: ["$dataDevolucao", null] }] },
-                  { $toDate: "$dataDevolucao" },
-                  new Date(0)
-                ]
-              },
-              hoje
-            ]
-          },
-          { $in: ["$pagamento", ["pendente", "parcial"]] }
-        ]
-      }
+      userId: userId, // 🔒 Segurança
+      pagamento: { $in: ["pendente", "parcial"] },
+      $expr: { $gte: [dateConversionLogic, hoje] }
     });
 
     return res.status(200).json({
@@ -101,17 +65,19 @@ async function getDashboardStats(req, res) {
   }
 }
 
-
+/**
+ * Retorna aluguéis recentes válidos do usuário.
+ */
 async function getRecentRentals(req, res) {
   try {
     const db = await connectToRentalsDB();
     const rentalsCollection = db.collection('rentals');
-
+    const userId = req.user.userId;
     const hoje = new Date();
 
-    // Busca TODOS os aluguéis cujo prazo ainda está válido (sem limite)
     const recentRentals = await rentalsCollection
       .find({
+        userId: userId, // 🔒 Segurança: Apenas do usuário
         $expr: {
           $gte: [
             {
@@ -125,7 +91,8 @@ async function getRecentRentals(req, res) {
           ]
         }
       })
-      .sort({ _id: -1 })
+      .sort({ _id: -1 }) // Mais recentes primeiro
+      .limit(10) // Boas práticas: limitar retorno recente
       .toArray();
 
     return res.status(200).json(recentRentals);
@@ -136,14 +103,20 @@ async function getRecentRentals(req, res) {
   }
 }
 
-
+/**
+ * Cria um novo aluguel vinculado ao usuário logado.
+ */
 async function createRental(req, res) {
   try {
     const db = await connectToRentalsDB();
     const rentalsCollection = db.collection('rentals');
+    
     const newRental = req.body;
     
-    // Insere o novo aluguel na coleção 'rentals'
+    // 🔒 Segurança: Vincula o documento ao dono do token
+    newRental.userId = req.user.userId;
+    newRental.createdAt = new Date(); // Auditabilidade
+
     const result = await rentalsCollection.insertOne(newRental);
 
     res.status(201).json({
@@ -158,11 +131,16 @@ async function createRental(req, res) {
   }
 }
 
+/**
+ * Busca todos os aluguéis (apenas do usuário logado).
+ */
 async function getRentals(req, res) {
   try {
     const db = await connectToRentalsDB();
     const rentalsCollection = db.collection('rentals');
-    const rentals = await rentalsCollection.find({}).toArray();
+
+    // 🔒 Segurança: Filtra pelo userId do token
+    const rentals = await rentalsCollection.find({ userId: req.user.userId }).toArray();
 
     res.status(200).json(rentals);
 
@@ -172,20 +150,30 @@ async function getRentals(req, res) {
   }
 }
 
+/**
+ * Atualiza um aluguel existente (se pertencer ao usuário).
+ */
 async function updateRental(req, res) {
   try {
     const db = await connectToRentalsDB();
     const rentalsCollection = db.collection('rentals');
     const { id } = req.params;
-    const rentalAtualizado = req.body;
+    const updateData = req.body;
+
+    // 🔒 Segurança: Evita alteração de dono ou id
+    delete updateData._id;
+    delete updateData.userId;
 
     const result = await rentalsCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: rentalAtualizado }
+      { 
+        _id: new ObjectId(id),
+        userId: req.user.userId // 🔒 Garante que só o dono edita
+      },
+      { $set: updateData }
     );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({ error: "Aluguel não encontrado." });
+      return res.status(404).json({ error: "Aluguel não encontrado ou acesso negado." });
     }
 
     res.status(200).json({ message: "Aluguel atualizado com sucesso." });
@@ -195,16 +183,22 @@ async function updateRental(req, res) {
   }
 }
 
+/**
+ * Remove um aluguel (se pertencer ao usuário).
+ */
 async function deleteRental(req, res) {
   try {
     const db = await connectToRentalsDB();
     const rentalsCollection = db.collection('rentals');
     const { id } = req.params;
 
-    const result = await rentalsCollection.deleteOne({ _id: new ObjectId(id) });
+    const result = await rentalsCollection.deleteOne({ 
+      _id: new ObjectId(id),
+      userId: req.user.userId // 🔒 Garante que só o dono deleta
+    });
 
     if (result.deletedCount === 0) {
-      return res.status(404).json({ error: "Aluguel não encontrado." });
+      return res.status(404).json({ error: "Aluguel não encontrado ou acesso negado." });
     }
 
     res.status(200).json({ message: "Aluguel excluído com sucesso." });
@@ -214,7 +208,6 @@ async function deleteRental(req, res) {
   }
 }
 
-
 module.exports = {
   getRentals,
   createRental,
@@ -223,4 +216,3 @@ module.exports = {
   getDashboardStats,      
   getRecentRentals        
 };
-
