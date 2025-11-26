@@ -13,13 +13,26 @@ const materiaisRouter = require('./src/routes/materiais');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ CORREÇÃO DE CORS: Permitir explicitamente a Vercel e Localhost
+// ✅ CORREÇÃO DE CORS SÊNIOR (Dinâmica)
+// Define quais URLs fixas são permitidas
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://arm-weld-gamma.vercel.app" 
+];
+
 app.use(cors({
-  origin: [
-    "http://localhost:5173", // Seu frontend local
-    "https://arm-weld-gamma.vercel.app", // Sua URL na Vercel
-    "https://arm-weld-gamma.vercel.app/" // As vezes o browser manda com barra
-  ],
+  origin: function (origin, callback) {
+    // Permite requisições sem origem (como Postman ou Server-to-Server)
+    if (!origin) return callback(null, true);
+
+    // Verifica se a origem está na lista fixa OU se é um subdomínio vercel.app
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      console.log("Bloqueado pelo CORS:", origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
@@ -28,7 +41,7 @@ app.use(cors({
 app.use(express.json());
 
 // Rotas públicas
-app.use('/api/auth', authRoutes);
+app.use(['/api/auth', '/auth'], authRoutes);
 
 // Conectar ao MongoDB
 Promise.all([
@@ -42,10 +55,10 @@ Promise.all([
 });
 
 // Rotas privadas protegidas
-app.use('/api/materiais', verifyToken, materiaisRouter);
-app.use('/api/rentals', verifyToken, rentalsRouter);
+app.use(['/api/materiais', '/materiais'], verifyToken, materiaisRouter);
+app.use(['/api/rentals', '/rentals'], verifyToken, rentalsRouter);
 
-// Rota de teste para verificar se a API está no ar
+// Rota de teste
 app.get('/', (req, res) => {
   res.send('API ARM rodando com sucesso!');
 });
