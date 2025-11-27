@@ -6,7 +6,6 @@ async function getMateriais(req, res) {
     const db = await connectToMateriaisDB();
     const materiaisCollection = db.collection('materiais');
     
-    // 🔒 Segurança: Filtra apenas os materiais do usuário logado
     const materiais = await materiaisCollection.find({ userId: req.user.userId }).toArray();
     
     res.status(200).json(materiais);
@@ -22,7 +21,6 @@ async function createMaterial(req, res) {
     const materiaisCollection = db.collection('materiais');
     const newMaterial = req.body;
 
-    // 🔒 Segurança: Vincula o material ao usuário logado
     newMaterial.userId = req.user.userId;
     newMaterial.createdAt = new Date();
 
@@ -46,14 +44,13 @@ async function updateMaterial(req, res) {
     const { id } = req.params;
     const updateData = req.body;
 
-    // Remove o _id e userId para evitar erros de imutabilidade e troca de dono
     delete updateData._id;
     delete updateData.userId;
 
     const result = await materiaisCollection.updateOne(
       { 
         _id: new ObjectId(id),
-        userId: req.user.userId // 🔒 Garante que só o dono edita
+        userId: req.user.userId 
       }, 
       { $set: updateData }
     );
@@ -77,7 +74,7 @@ async function deleteMaterial(req, res) {
 
     const result = await materiaisCollection.deleteOne({ 
       _id: new ObjectId(id),
-      userId: req.user.userId // 🔒 Garante que só o dono deleta
+      userId: req.user.userId 
     });
 
     if (result.deletedCount === 0) {

@@ -3,7 +3,6 @@ const { ObjectId } = require('mongodb');
 
 
 const RentalModel = {
-  // Simplesmente descreve os campos esperados
   id: String,
   cliente: String,
   materiais: [String],

@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import axios from "axios"; // ✅ Usando Axios
+import axios from "axios";
 
 export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) => {
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,19 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
   const { toast } = useToast();
 
   if (!rental) return null;
+
+  const formatPhoneNumber = (value: string) => {
+    const numbers = value.replace(/\D/g, "");
+    const limited = numbers.slice(0, 11);
+    let formatted = limited;
+    if (limited.length > 2) {
+      formatted = `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+    }
+    if (limited.length > 7) {
+      formatted = `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
+    }
+    return formatted;
+  };
 
   const toDateInput = (dateStr: string) => {
     if (!dateStr) return "";
@@ -52,7 +66,6 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
       delete rentalToUpdate._id;
       delete rentalToUpdate.id;
 
-      // ✅ Axios PUT
       await axios.put(`/rentals/${rentalId}`, rentalToUpdate);
 
       toast({
@@ -82,7 +95,6 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
 
       const rentalId = rental._id || rental.id;
 
-      // ✅ Axios DELETE
       await axios.delete(`/rentals/${rentalId}`);
 
       toast({
@@ -122,14 +134,26 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
             />
           </div>
 
-          <div>
-            <Label htmlFor="cliente">Cliente</Label>
-            <Input
-              id="cliente"
-              value={rental.cliente || ""}
-              onChange={(e) => handleChange("cliente", e.target.value)}
-              placeholder="Nome do cliente"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+                <Label htmlFor="cliente">Cliente</Label>
+                <Input
+                id="cliente"
+                value={rental.cliente || ""}
+                onChange={(e) => handleChange("cliente", e.target.value)}
+                placeholder="Nome do cliente"
+                />
+            </div>
+            <div>
+                <Label htmlFor="telefone">Telefone</Label>
+                <Input
+                id="telefone"
+                value={rental.telefone || ""}
+                onChange={(e) => handleChange("telefone", formatPhoneNumber(e.target.value))}
+                placeholder="Telefone"
+                maxLength={15}
+                />
+            </div>
           </div>
 
           <div>
@@ -157,59 +181,96 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
             />
           </div>
 
+          {/* ✅ DATA E HORA DE RETIRADA */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+                <Label htmlFor="dataRetirada">Data Retirada</Label>
+                <Input
+                id="dataRetirada"
+                type="date"
+                value={toDateInput(rental.dataRetirada)}
+                onChange={(e) => handleChange("dataRetirada", e.target.value)}
+                />
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="horarioRetirada">Hora Retirada</Label>
+                <Input
+                id="horarioRetirada"
+                type="time"
+                value={rental.horarioRetirada || ""}
+                onChange={(e) => handleChange("horarioRetirada", e.target.value)}
+                />
+            </div>
+          </div>
+
+          {/* ✅ DATA E HORA DE DEVOLUÇÃO */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+                <Label htmlFor="dataDevolucao">Data Devolução</Label>
+                <Input
+                id="dataDevolucao"
+                type="date"
+                value={toDateInput(rental.dataDevolucao)}
+                onChange={(e) => handleChange("dataDevolucao", e.target.value)}
+                />
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="horarioDevolucao">Hora Devolução</Label>
+                <Input
+                id="horarioDevolucao"
+                type="time"
+                value={rental.horarioDevolucao || ""}
+                onChange={(e) => handleChange("horarioDevolucao", e.target.value)}
+                />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+                <Label htmlFor="status">Status</Label>
+                <Select
+                value={rental.status || "ativo"}
+                onValueChange={(value) => handleChange("status", value)}
+                >
+                <SelectTrigger id="status">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="ativo">Em Andamento</SelectItem>
+                    <SelectItem value="atrasado">Atrasado</SelectItem>
+                    <SelectItem value="concluido">Concluído</SelectItem>
+                </SelectContent>
+                </Select>
+            </div>
+
+            <div>
+                <Label htmlFor="pagamento">Status de Pagamento</Label>
+                <Select
+                value={rental.pagamento || "pendente"}
+                onValueChange={(value) => handleChange("pagamento", value)}
+                >
+                <SelectTrigger id="pagamento">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="pago">Pago</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="parcial">Parcial</SelectItem>
+                </SelectContent>
+                </Select>
+            </div>
+          </div>
+
           <div>
-            <Label htmlFor="dataRetirada">Data de Retirada</Label>
-            <Input
-              id="dataRetirada"
-              type="date"
-              value={toDateInput(rental.dataRetirada)}
-              onChange={(e) => handleChange("dataRetirada", e.target.value)}
+            <Label htmlFor="observacoes">Observações</Label>
+            <Textarea
+              id="observacoes"
+              value={rental.observacoes || ""}
+              onChange={(e) => handleChange("observacoes", e.target.value)}
+              placeholder="Observações do aluguel"
             />
           </div>
 
-          <div>
-            <Label htmlFor="dataDevolucao">Data de Devolução</Label>
-            <Input
-              id="dataDevolucao"
-              type="date"
-              value={toDateInput(rental.dataDevolucao)}
-              onChange={(e) => handleChange("dataDevolucao", e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="status">Status</Label>
-            <Select
-              value={rental.status || "ativo"}
-              onValueChange={(value) => handleChange("status", value)}
-            >
-              <SelectTrigger id="status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ativo">Em Andamento</SelectItem>
-                <SelectItem value="atrasado">Atrasado</SelectItem>
-                <SelectItem value="concluido">Concluído</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="pagamento">Status de Pagamento</Label>
-            <Select
-              value={rental.pagamento || "pendente"}
-              onValueChange={(value) => handleChange("pagamento", value)}
-            >
-              <SelectTrigger id="pagamento">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pago">Pago</SelectItem>
-                <SelectItem value="pendente">Pendente</SelectItem>
-                <SelectItem value="parcial">Parcial</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {error && (

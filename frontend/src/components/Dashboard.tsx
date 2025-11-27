@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle, Clock, Eye, Calendar } from "lucide-react";
 import { RentalModal } from "./RentalModal";
 import { useEffect, useState } from "react";
-import axios from "axios"; // Usando axios para aproveitar a config de Auth
+import axios from "axios";
 
 export const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -14,7 +14,6 @@ export const Dashboard = () => {
     pendingPayment: 0,
   });
 
-  // Inicializa com array vazio para evitar o erro .map na primeira renderização
   const [recentRentals, setRecentRentals] = useState<any[]>([]);
   const [selectedRental, setSelectedRental] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,17 +31,14 @@ export const Dashboard = () => {
     const fetchRecentRentals = async () => {
       try {
         const response = await axios.get("/rentals/recent");
-        
-        // CORREÇÃO DO ERRO: Verifica se a resposta é realmente um array
         if (Array.isArray(response.data)) {
             setRecentRentals(response.data);
         } else {
-            console.error("API não retornou um array de aluguéis:", response.data);
-            setRecentRentals([]); // Fallback para array vazio
+            setRecentRentals([]);
         }
       } catch (error) {
         console.error("Erro ao buscar aluguéis recentes:", error);
-        setRecentRentals([]); // Em caso de erro, garante array vazio
+        setRecentRentals([]);
       }
     };
 
@@ -90,7 +86,6 @@ export const Dashboard = () => {
 
   const handleSaveRental = (updatedRental: any) => {
     setSelectedRental(updatedRental);
-    // Atualiza a lista localmente
     setRecentRentals(prev => prev.map(r => r._id === updatedRental._id ? updatedRental : r));
   };
 
@@ -102,7 +97,6 @@ export const Dashboard = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Cards de status */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {dashboardStats.map((stat) => {
           const Icon = stat.icon;
@@ -122,14 +116,12 @@ export const Dashboard = () => {
         })}
       </div>
 
-      {/* Alugueis recentes */}
       <Card>
         <CardHeader>
           <CardTitle>Aluguéis Recentes</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* O ERRO DE .MAP ACONTECIA AQUI SE recentRentals FOSSE null/objeto */}
             {Array.isArray(recentRentals) && recentRentals.length > 0 ? (
               recentRentals.map((rental) => (
                 <div
@@ -138,17 +130,27 @@ export const Dashboard = () => {
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-sm text-gray-500">#{String(rental._id).slice(-6)}</span>
                       {getStatusBadge(rental.status)}
                       {getPaymentBadge(rental.pagamento)}
                     </div>
-                    <p className="font-semibold">{rental.cliente}</p>
+                    <p className="font-semibold text-lg">
+                      {rental.cliente} 
+                      {rental.telefone && <span className="text-sm font-normal text-muted-foreground ml-2">({rental.telefone})</span>}
+                    </p>
                     <p className="text-sm text-muted-foreground mb-1">
                       Materiais: {Array.isArray(rental.materiais) ? rental.materiais.join(", ") : rental.materiais}
                     </p>
+                    
+                    {rental.observacoes && (
+                        <p className="text-xs text-gray-600 mb-1 italic">
+                            Obs: {rental.observacoes}
+                        </p>
+                    )}
+
                     <p className="text-xs text-muted-foreground">
-                      Retirada: {formatDate(rental.dataRetirada)} |
-                      Devolução: {formatDate(rental.dataDevolucao)}
+                      {/* ✅ Mostra Data e Hora se disponível */}
+                      Retirada: {formatDate(rental.dataRetirada)} {rental.horarioRetirada ? `às ${rental.horarioRetirada}` : ''} |
+                      Devolução: {formatDate(rental.dataDevolucao)} {rental.horarioDevolucao ? `às ${rental.horarioDevolucao}` : ''}
                     </p>
                   </div>
                   <Button
@@ -174,7 +176,7 @@ export const Dashboard = () => {
         onClose={() => setModalOpen(false)}
         rental={selectedRental}
         onSave={handleSaveRental}
-        onDelete={(id) => setRecentRentals(prev => prev.filter(r => r._id !== id))}
+        onDelete={(id: string) => setRecentRentals(prev => prev.filter(r => r._id !== id))}
       />
     </div>
   );

@@ -1,9 +1,9 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { connectToRentalsDB } = require('../../config/db');
-const { ObjectId } = require('mongodb'); // Importante para o getMe
+const { ObjectId } = require('mongodb'); 
 
-// Use variável de ambiente em produção
+
 const JWT_SECRET = process.env.JWT_SECRET || 'chave_super_secreta_padrao_dev';
 
 async function register(req, res) {
@@ -13,17 +13,16 @@ async function register(req, res) {
     
     const { name, email, password, company } = req.body;
 
-    // 1. Verifica duplicidade
+  
     const userExists = await usersCollection.findOne({ email });
     if (userExists) {
       return res.status(400).json({ error: "Email já cadastrado." });
     }
 
-    // 2. Criptografa a senha
+ 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 3. Cria usuário
     const newUser = {
       name,
       email,
@@ -34,7 +33,7 @@ async function register(req, res) {
 
     const result = await usersCollection.insertOne(newUser);
 
-    // 4. Gera token
+  
     const token = jwt.sign(
       { userId: result.insertedId.toString(), email }, 
       JWT_SECRET, 
@@ -89,13 +88,11 @@ async function login(req, res) {
   }
 }
 
-// ✅ ESTA É A FUNÇÃO QUE PROVAVELMENTE ESTAVA FALTANDO
 async function getMe(req, res) {
     try {
         const db = await connectToRentalsDB();
         const usersCollection = db.collection('users');
 
-        // req.user vem do middleware verifyToken
         const user = await usersCollection.findOne(
             { _id: new ObjectId(req.user.userId) },
             { projection: { password: 0 } } // Segurança: não retorna a senha
@@ -116,5 +113,4 @@ async function getMe(req, res) {
     }
 }
 
-// ✅ IMPORTANTE: Certifique-se de exportar o getMe aqui
 module.exports = { register, login, getMe };

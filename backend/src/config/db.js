@@ -1,12 +1,10 @@
 const { MongoClient } = require('mongodb');
 
-// Usa a variável de ambiente na nuvem OU localhost se estiver no seu PC
 const uri = process.env.MONGO_URI_RENTALS || "mongodb://localhost:27017/rentalsdb";
 const client = new MongoClient(uri);
 
 async function connectToRentalsDB() {
   try {
-    // Em produção, a conexão pode já estar aberta ou gerenciar pool
     if (!client.topology || !client.topology.isConnected()) {
         await client.connect();
         console.log("Conectado ao MongoDB (Rentals)!");

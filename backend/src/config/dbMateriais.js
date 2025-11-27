@@ -1,6 +1,5 @@
 const { MongoClient } = require('mongodb');
 
-// Usa a variável de ambiente na nuvem OU localhost se estiver no seu PC
 const uri = process.env.MONGO_URI_MATERIAIS || "mongodb://localhost:27017/aluguel_materiais";
 const client = new MongoClient(uri);
 

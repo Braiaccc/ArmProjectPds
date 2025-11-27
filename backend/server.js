@@ -13,19 +13,19 @@ const materiaisRouter = require('./src/routes/materiais');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ LISTA DE ORIGENS PERMITIDAS (Frontend)
+
 const allowedOrigins = [
-  "http://localhost:5173", // Vite padrão
-  "http://localhost:8080", // 👈 ADICIONADO: Sua porta atual
-  "https://arm-weld-gamma.vercel.app" // Vercel produção
+  "http://localhost:5173", 
+  "http://localhost:8080", 
+  "https://arm-weld-gamma.vercel.app" 
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Permite requisições sem origem (como Postman, Mobile Apps ou Server-to-Server)
+    
     if (!origin) return callback(null, true);
 
-    // Verifica se a origem está na lista fixa OU se é um subdomínio vercel.app
+   
     if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
       callback(null, true);
     } else {
@@ -40,10 +40,10 @@ app.use(cors({
 
 app.use(express.json());
 
-// Rotas públicas (aceita com ou sem prefixo /api)
+
 app.use(['/api/auth', '/auth'], authRoutes);
 
-// Conectar ao MongoDB
+
 Promise.all([
   connectToRentalsDB(),
   connectToMateriaisDB()

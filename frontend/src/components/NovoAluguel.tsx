@@ -14,7 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import axios from "axios"; // ✅ Usando Axios
+import axios from "axios";
 
 export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
   const { toast } = useToast();
@@ -22,8 +22,14 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
   const [cliente, setCliente] = useState("");
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
+  
+  // ✅ Novos estados para data e HORÁRIO
   const [dataRetirada, setDataRetirada] = useState("");
+  const [horarioRetirada, setHorarioRetirada] = useState("");
+  
   const [dataDevolucao, setDataDevolucao] = useState("");
+  const [horarioDevolucao, setHorarioDevolucao] = useState("");
+
   const [valor, setValor] = useState(0);
   const [pagamento, setPagamento] = useState("");
   const [observacoes, setObservacoes] = useState("");
@@ -40,16 +46,26 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
     status: "disponivel" | "alugado" | "manutencao";
   }
 
+  const formatPhoneNumber = (value: string) => {
+    const numbers = value.replace(/\D/g, "");
+    const limited = numbers.slice(0, 11);
+    let formatted = limited;
+    if (limited.length > 2) {
+      formatted = `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+    }
+    if (limited.length > 7) {
+      formatted = `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
+    }
+    return formatted;
+  };
+
   useEffect(() => {
     const fetchMateriais = async () => {
       try {
         setLoadingMateriais(true);
-        // ✅ Substituído fetch por axios.get
         const response = await axios.get("/materiais");
         
-        // Verifica se é array, caso contrário usa vazio
         const data = Array.isArray(response.data) ? response.data : [];
-
         const disponiveis = data.filter((m: Material) => m.status === 'disponivel');
         setMateriaisDisponiveis(disponiveis);
       } catch (error) {
@@ -83,16 +99,17 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
       telefone,
       endereco,
       dataRetirada,
+      horarioRetirada, // ✅ Enviando horário
       dataDevolucao,
+      horarioDevolucao, // ✅ Enviando horário
       materiais: selectedMaterials,
       valor: Number(valor),
       pagamento,
       observacoes,
-      status: pagamento === "pago" ? "concluido" : "ativo", // Corrigido status default
+      status: pagamento === "pago" ? "concluido" : "ativo",
     };
 
     try {
-      // ✅ Substituído fetch por axios.post
       const response = await axios.post("/rentals", novo);
 
       toast({
@@ -100,7 +117,6 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
         description: `Cliente: ${response.data.rental.cliente}`,
       });
 
-      console.log("Chamando a função onSave no componente NovoAluguel.");
       onSave();
 
       // Limpa os campos
@@ -108,7 +124,9 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
       setTelefone("");
       setEndereco("");
       setDataRetirada("");
+      setHorarioRetirada("");
       setDataDevolucao("");
+      setHorarioDevolucao("");
       setValor(0);
       setPagamento("");
       setObservacoes("");
@@ -149,7 +167,9 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
               <Input
                 id="telefone"
                 value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
+                onChange={(e) => setTelefone(formatPhoneNumber(e.target.value))}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
               />
             </div>
             <div className="space-y-2 col-span-1 md:col-span-2">
@@ -160,25 +180,52 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
                 onChange={(e) => setEndereco(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="dataRetirada">Data de Retirada</Label>
-              <Input
-                id="dataRetirada"
-                type="date"
-                value={dataRetirada}
-                onChange={(e) => setDataRetirada(e.target.value)}
-              />
+
+            {/* ✅ BLOCO DE DATA E HORÁRIO DE RETIRADA */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="dataRetirada">Data Retirada</Label>
+                <Input
+                  id="dataRetirada"
+                  type="date"
+                  value={dataRetirada}
+                  onChange={(e) => setDataRetirada(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="horarioRetirada">Hora Retirada</Label>
+                <Input
+                  id="horarioRetirada"
+                  type="time"
+                  value={horarioRetirada}
+                  onChange={(e) => setHorarioRetirada(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="dataDevolucao">Data de Devolução</Label>
-              <Input
-                id="dataDevolucao"
-                type="date"
-                value={dataDevolucao}
-                onChange={(e) => setDataDevolucao(e.target.value)}
-              />
+
+            {/* ✅ BLOCO DE DATA E HORÁRIO DE DEVOLUÇÃO */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="dataDevolucao">Data Devolução</Label>
+                <Input
+                  id="dataDevolucao"
+                  type="date"
+                  value={dataDevolucao}
+                  onChange={(e) => setDataDevolucao(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="horarioDevolucao">Hora Devolução</Label>
+                <Input
+                  id="horarioDevolucao"
+                  type="time"
+                  value={horarioDevolucao}
+                  onChange={(e) => setHorarioDevolucao(e.target.value)}
+                />
+              </div>
             </div>
           </div>
+
         <div className="space-y-2">
             <Label>Materiais Disponíveis</Label> 
             <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">

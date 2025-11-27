@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Package, X, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import axios from "axios"; // ✅ Usando Axios
+import axios from "axios";
 
 interface Material {
   _id: string;
@@ -105,7 +105,7 @@ export const CadastroMateriais: React.FC = () => {
         // ✅ Axios POST
         await axios.post("/materiais", materialPayload);
         
-        fetchMateriais(); // Recarrega para pegar o ID gerado
+        fetchMateriais(); 
         toast({
           title: "Sucesso!",
           description: `Material ${formData.nome} criado com sucesso!`,

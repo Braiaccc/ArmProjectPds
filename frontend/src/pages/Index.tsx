@@ -11,7 +11,7 @@ const Index = () => {
   const [rentalAdded, setRentalAdded] = useState(0);
 
   const handleSave = () => {
-    // Incrementa o estado para forçar o Historico a re-renderizar
+
     setRentalAdded(prev => prev + 1);
   };
 

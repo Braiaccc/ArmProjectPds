@@ -1,13 +1,10 @@
 const jwt = require('jsonwebtoken');
 
-// Garante a mesma chave usada no controller
 const JWT_SECRET = process.env.JWT_SECRET || 'chave_super_secreta_padrao_dev';
 
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  // Log para depuração (Verifique isso no terminal do backend quando der erro)
-  // console.log("--> [AuthMiddleware] Header recebido:", authHeader);
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     console.log("--> [AuthMiddleware] Erro: Cabeçalho ausente ou formato errado");

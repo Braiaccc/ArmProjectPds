@@ -27,12 +27,9 @@ export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
     try {
       const response = await axios.get("/rentals");
 
-      // ✅ CORREÇÃO AQUI: Ordenar EXCLUSIVAMENTE pela data de retirada
-      // Isso garante que Novembro sempre fique acima de Fevereiro, independente de quando foi cadastrado
       const sortedData = response.data.sort((a: any, b: any) => {
         const dateA = new Date(a.dataRetirada).getTime();
         const dateB = new Date(b.dataRetirada).getTime();
-        // Ordenação Decrescente (Mais recente -> Mais antigo)
         return dateB - dateA;
       });
 
@@ -60,7 +57,6 @@ export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
     setSelectedRental(updatedRental);
     setAlugueis(prevAlugueis => {
         const newList = prevAlugueis.map(r => r._id === updatedRental._id ? updatedRental : r);
-        // Reordena ao salvar edição também
         return newList.sort((a: any, b: any) => {
             const dateA = new Date(a.dataRetirada).getTime();
             const dateB = new Date(b.dataRetirada).getTime();
@@ -76,7 +72,6 @@ export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
-    // Ajuste para evitar problemas de fuso horário em strings YYYY-MM-DD simples
     const [year, month, day] = dateStr.split('-');
     if (year && month && day) {
         return `${day}/${month}/${year}`;
@@ -103,17 +98,13 @@ export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
     fetchRentals();
   }, [rentalAdded]);
 
-  // --- LÓGICA DE FILTRAGEM ---
   const filteredHistorico = alugueis.filter(item => {
     const matchesSearch = item.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item._id && item._id.toLowerCase().includes(searchTerm.toLowerCase())); 
     
     const matchesPayment = statusFilter === "todos" || item.pagamento === statusFilter;
 
-    // Ajuste seguro para extração de data
     const d = new Date(item.dataRetirada);
-    // Adiciona 'GMT' para garantir que pegue o dia/mês correto da string se necessário, 
-    // mas para ordenação e filtro simples o Date object padrão resolve se o input for YYYY-MM-DD
     const itemYear = d.getFullYear().toString();
     const itemMonth = d.getMonth().toString(); 
 
@@ -129,12 +120,8 @@ export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
     const groups: any[] = [];
     
     filteredHistorico.forEach(rental => {
-      // Assegura parsing correto da data para exibição do grupo
-      // Se a string for '2025-02-04', new Date cria meia-noite UTC. 
-      // getMonth() usa o timezone local, o que pode cair no dia anterior se for UTC-3.
-      // Solução robusta para agrupar por string YYYY-MM-DD:
       const [ano, mes] = rental.dataRetirada.split('-'); 
-      const monthIndex = parseInt(mes) - 1; // 0-11
+      const monthIndex = parseInt(mes) - 1;
       
       const monthName = MESES[monthIndex] || MESES[0];
       const year = parseInt(ano);
@@ -258,6 +245,7 @@ export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-800 text-lg">{item.cliente}</span>
+                            {item.telefone && <span className="text-sm text-gray-500">({item.telefone})</span>}
                             {getPaymentBadge(item.pagamento)}
                           </div>
                           <p className="text-sm text-gray-500">
@@ -268,7 +256,8 @@ export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
 
                         <div className="flex flex-col md:items-end gap-1 text-sm">
                             <div className="text-gray-600 bg-gray-50 px-2 py-1 rounded text-xs md:text-sm">
-                                {formatDate(item.dataRetirada)} até {formatDate(item.dataDevolucao)}
+                                {/* ✅ Mostra Data e Hora se disponível */}
+                                {formatDate(item.dataRetirada)} {item.horarioRetirada ? `às ${item.horarioRetirada}` : ''} até {formatDate(item.dataDevolucao)} {item.horarioDevolucao ? `às ${item.horarioDevolucao}` : ''}
                             </div>
                             <div className="font-bold text-lg text-green-600">
                                 R$ {item.valor.toFixed(2)}

@@ -1,51 +1,48 @@
 const { connectToRentalsDB } = require('../../config/db');
 const { ObjectId } = require('mongodb');
 
-/**
- * Retorna as estatísticas do Dashboard baseadas apenas nos dados do usuário logado.
- */
+
 async function getDashboardStats(req, res) {
   try {
     const db = await connectToRentalsDB();
     const rentalsCollection = db.collection('rentals');
     
-    // ID do usuário vindo do Token JWT (Middleware)
+    
     const userId = req.user.userId;
     const hoje = new Date();
 
-    // Helper de filtro de data para reutilizar lógica
-    // Lógica: Se dataDevolucao existe, converte para Date, senão usa data zero.
+    
     const dateConversionLogic = {
       $toDate: {
         $cond: [
           { $and: [{ $ne: ["$dataDevolucao", ""] }, { $ne: ["$dataDevolucao", null] }] },
           "$dataDevolucao",
-          new Date(0) // Data fallback
+          new Date(0) 
         ]
       }
     };
 
-    // 1. Total Ativos (userId + status ativo + data >= hoje)
+    
     const totalActive = await rentalsCollection.countDocuments({
       userId: userId, // 🔒 Segurança
       status: "ativo",
       $expr: { $gte: [dateConversionLogic, hoje] }
     });
 
-    // 2. Total Atrasados (userId + data < hoje)
+   
     const totalLate = await rentalsCollection.countDocuments({
       userId: userId, // 🔒 Segurança
       $expr: { $lt: [dateConversionLogic, hoje] }
     });
 
-    // 3. Em Dia (userId + pago + data >= hoje)
+    
     const totalOnTime = await rentalsCollection.countDocuments({
       userId: userId, // 🔒 Segurança
       pagamento: "pago",
       $expr: { $gte: [dateConversionLogic, hoje] }
     });
 
-    // 4. Pagamento Pendente (userId + pendente/parcial + data >= hoje)
+    
     const totalPendingPayment = await rentalsCollection.countDocuments({
       userId: userId, // 🔒 Segurança
       pagamento: { $in: ["pendente", "parcial"] },
@@ -65,9 +62,7 @@ async function getDashboardStats(req, res) {
   }
 }
 
-/**
- * Retorna aluguéis recentes válidos do usuário.
- */
+
 async function getRecentRentals(req, res) {
   try {
     const db = await connectToRentalsDB();
@@ -77,7 +72,7 @@ async function getRecentRentals(req, res) {
 
     const recentRentals = await rentalsCollection
       .find({
-        userId: userId, // 🔒 Segurança: Apenas do usuário
+        userId: userId, 
         $expr: {
           $gte: [
             {
@@ -91,8 +86,8 @@ async function getRecentRentals(req, res) {
           ]
         }
       })
-      .sort({ _id: -1 }) // Mais recentes primeiro
-      .limit(10) // Boas práticas: limitar retorno recente
+      .sort({ _id: -1 }) 
+      .limit(20) 
       .toArray();
 
     return res.status(200).json(recentRentals);
@@ -103,9 +98,7 @@ async function getRecentRentals(req, res) {
   }
 }
 
-/**
- * Cria um novo aluguel vinculado ao usuário logado.
- */
+
 async function createRental(req, res) {
   try {
     const db = await connectToRentalsDB();
@@ -113,9 +106,9 @@ async function createRental(req, res) {
     
     const newRental = req.body;
     
-    // 🔒 Segurança: Vincula o documento ao dono do token
+  
     newRental.userId = req.user.userId;
-    newRental.createdAt = new Date(); // Auditabilidade
+    newRental.createdAt = new Date(); 
 
     const result = await rentalsCollection.insertOne(newRental);
 
@@ -131,15 +124,12 @@ async function createRental(req, res) {
   }
 }
 
-/**
- * Busca todos os aluguéis (apenas do usuário logado).
- */
+
 async function getRentals(req, res) {
   try {
     const db = await connectToRentalsDB();
     const rentalsCollection = db.collection('rentals');
 
-    // 🔒 Segurança: Filtra pelo userId do token
     const rentals = await rentalsCollection.find({ userId: req.user.userId }).toArray();
 
     res.status(200).json(rentals);
@@ -150,9 +140,6 @@ async function getRentals(req, res) {
   }
 }
 
-/**
- * Atualiza um aluguel existente (se pertencer ao usuário).
- */
 async function updateRental(req, res) {
   try {
     const db = await connectToRentalsDB();
@@ -160,14 +147,13 @@ async function updateRental(req, res) {
     const { id } = req.params;
     const updateData = req.body;
 
-    // 🔒 Segurança: Evita alteração de dono ou id
     delete updateData._id;
     delete updateData.userId;
 
     const result = await rentalsCollection.updateOne(
       { 
         _id: new ObjectId(id),
-        userId: req.user.userId // 🔒 Garante que só o dono edita
+        userId: req.user.userId 
       },
       { $set: updateData }
     );
@@ -183,9 +169,7 @@ async function updateRental(req, res) {
   }
 }
 
-/**
- * Remove um aluguel (se pertencer ao usuário).
- */
+
 async function deleteRental(req, res) {
   try {
     const db = await connectToRentalsDB();
@@ -194,7 +178,7 @@ async function deleteRental(req, res) {
 
     const result = await rentalsCollection.deleteOne({ 
       _id: new ObjectId(id),
-      userId: req.user.userId // 🔒 Garante que só o dono deleta
+      userId: req.user.userId 
     });
 
     if (result.deletedCount === 0) {

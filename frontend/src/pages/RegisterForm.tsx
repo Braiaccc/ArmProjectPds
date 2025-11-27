@@ -20,7 +20,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-// ✅ Importamos do nosso contexto, não do Firebase
 import { useAuth } from "@/context/AuthContext";
 
 interface RegisterFormData {
@@ -40,7 +39,6 @@ const RegisterForm = ({ onBackToLogin }: RegisterFormProps) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { toast } = useToast();
 
-  // ✅ Usamos o register do nosso contexto customizado
   const { register: registerUser } = useAuth();
 
   const {
@@ -54,14 +52,12 @@ const RegisterForm = ({ onBackToLogin }: RegisterFormProps) => {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      // Chama a API do Node.js
       await registerUser(data.name, data.email, data.password, data.company);
 
       toast({
         title: "Conta criada!",
         description: `Bem-vindo ao ARM, ${data.name}`,
       });
-      // AuthContext fará o redirecionamento
     } catch (error: any) {
       console.error(error);
       const errorMsg = error.response?.data?.error || "Erro ao criar conta.";
