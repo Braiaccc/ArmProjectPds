@@ -15,15 +15,19 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, X, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
+// ✅ Importar hook de notificação
+import { useNotification } from "@/context/NotificationContext";
 
 export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
   const { toast } = useToast();
+  // ✅ Usar hook
+  const { addNotification } = useNotification();
+
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [cliente, setCliente] = useState("");
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
   
-  // ✅ Novos estados para data e HORÁRIO
   const [dataRetirada, setDataRetirada] = useState("");
   const [horarioRetirada, setHorarioRetirada] = useState("");
   
@@ -99,9 +103,9 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
       telefone,
       endereco,
       dataRetirada,
-      horarioRetirada, // ✅ Enviando horário
+      horarioRetirada, 
       dataDevolucao,
-      horarioDevolucao, // ✅ Enviando horário
+      horarioDevolucao,
       materiais: selectedMaterials,
       valor: Number(valor),
       pagamento,
@@ -117,9 +121,13 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
         description: `Cliente: ${response.data.rental.cliente}`,
       });
 
+      // ✅ DISPARAR NOTIFICAÇÃO NO HEADER
+      // Formata a mensagem conforme solicitado
+      const msg = `Aluguel ${cliente} criado. Retirada: ${dataRetirada} às ${horarioRetirada || '00:00'}. Devolução: ${dataDevolucao} às ${horarioDevolucao || '00:00'}.`;
+      addNotification("Novo Aluguel", msg);
+
       onSave();
 
-      // Limpa os campos
       setCliente("");
       setTelefone("");
       setEndereco("");
@@ -181,7 +189,6 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
               />
             </div>
 
-            {/* ✅ BLOCO DE DATA E HORÁRIO DE RETIRADA */}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
                 <Label htmlFor="dataRetirada">Data Retirada</Label>
@@ -203,7 +210,6 @@ export const NovoAluguel = ({ onSave }: { onSave: () => void }) => {
               </div>
             </div>
 
-            {/* ✅ BLOCO DE DATA E HORÁRIO DE DEVOLUÇÃO */}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
                 <Label htmlFor="dataDevolucao">Data Devolução</Label>

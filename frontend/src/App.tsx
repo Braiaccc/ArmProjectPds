@@ -6,8 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthContainer from "@/pages/AuthContainer";
-import { AuthProvider } from "@/context/AuthContext";
-import { useAuth } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+// ✅ Importe o NotificationProvider
+import { NotificationProvider } from "@/context/NotificationContext";
 
 const queryClient = new QueryClient();
 
@@ -24,28 +25,25 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      
-      
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-           
-            <Route
-              path="/"
-              element={
-                <PrivateRoute>
-                  <Index />
-                </PrivateRoute>
-              }
-            />
-
-            <Route path="/login" element={<AuthContainer />} />
-
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          {/* ✅ Adicione o Provider aqui, dentro do AuthProvider */}
+          <NotificationProvider>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <PrivateRoute>
+                    <Index />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="/login" element={<AuthContainer />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </NotificationProvider>
         </AuthProvider>
       </BrowserRouter>
-      
     </TooltipProvider>
   </QueryClientProvider>
 );
