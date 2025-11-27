@@ -25,12 +25,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       
-      {/* CORREÇÃO FUNDAMENTAL AQUI: */}
-      {/* O BrowserRouter deve envolver o AuthProvider */}
+      
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* ✅ ROTA LOGADA */}
+           
             <Route
               path="/"
               element={
@@ -40,10 +39,8 @@ const App = () => (
               }
             />
 
-            {/* ✅ ROTA LOGIN */}
             <Route path="/login" element={<AuthContainer />} />
 
-            {/* ✅ NOT FOUND */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

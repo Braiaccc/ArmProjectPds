@@ -255,17 +255,7 @@ export const CadastroMateriais: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="valorDiario">Valor Diário (R$)</Label>
-                  <Input
-                    id="valorDiario"
-                    type="number"
-                    placeholder="0,00"
-                    value={formData.valorDiario}
-                    onChange={handleInputChange}
-                    min="0"
-                  />
-                </div>
+                
                 <div className="space-y-2">
                   <Label htmlFor="codSerie">Código/Série</Label>
                   <Input
@@ -277,7 +267,7 @@ export const CadastroMateriais: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="observacoes">Observações</Label>
                 <Textarea
                   id="observacoes"
@@ -285,7 +275,7 @@ export const CadastroMateriais: React.FC = () => {
                   value={formData.observacoes}
                   onChange={handleInputChange}
                 />
-              </div>
+              </div> */}
 
               <div className="flex justify-end gap-2 mt-4">
                 <Button type="button" variant="outline" onClick={resetForm}>

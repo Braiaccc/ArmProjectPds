@@ -45,7 +45,7 @@ const ForgotPasswordForm = ({ onBackToLogin }: ForgotPasswordFormProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md border border-border rounded-lg shadow-lg p-5">
         <Card className="backdrop-blur-sm bg-glass border-0 shadow-card">
           <CardHeader className="text-center space-y-4">
             <div className="mx-auto w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-elegant">

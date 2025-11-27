@@ -58,8 +58,8 @@ const LoginForm = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-background flex items-center justify-center p-4 b ">
+      <div className="w-full max-w-md border border-border rounded-lg shadow-lg p-5">
         <Card className="backdrop-blur-sm bg-glass border-0 shadow-card">
           <CardHeader className="text-center space-y-4">
             <img src="/Logotipo.svg" alt="ARM Logo" className="h-16 w-auto mx-auto" />
