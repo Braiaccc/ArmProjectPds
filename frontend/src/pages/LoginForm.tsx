@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Eye, EyeOff, Mail, Lock, Wrench } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 
-// Interface para os dados do formulário
 interface LoginFormData {
   email: string;
   password: string;
@@ -32,7 +31,6 @@ const LoginForm = ({
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   
-  // ✅ Usamos o login do nosso AuthContext (Node.js)
   const { login } = useAuth(); 
 
   const {
@@ -49,7 +47,6 @@ const LoginForm = ({
         title: "Login realizado com sucesso!",
         description: `Bem-vindo de volta!`,
       });
-      // O redirecionamento já acontece dentro do AuthContext
     } catch (error: any) {
       console.error(error);
       toast({
@@ -65,11 +62,8 @@ const LoginForm = ({
       <div className="w-full max-w-md">
         <Card className="backdrop-blur-sm bg-glass border-0 shadow-card">
           <CardHeader className="text-center space-y-4">
-            <div className="mx-auto w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-elegant">
-              <Wrench className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <img src="/Logotipo.svg" alt="ARM Logo" className="h-16 w-auto mx-auto" />
             <div>
-              <CardTitle className="text-2xl font-bold">ARM</CardTitle>
               <CardDescription className="text-muted-foreground">
                 Aluguel e Recursos de Materiais
               </CardDescription>
@@ -158,7 +152,6 @@ const LoginForm = ({
                   {isSubmitting ? "Entrando..." : "Entrar"}
                 </Button>
                 
-                {/* Removemos Google Login pois requer config extra no backend */}
               </div>
             </form>
 
