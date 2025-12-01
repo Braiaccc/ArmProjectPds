@@ -50,7 +50,6 @@ export const Dashboard = () => {
     { title: "Em Dia", value: stats.onTime, icon: CheckCircle },
     { title: "Pagamentos Pendentes", value: stats.pendingPayment, icon: Clock },
     { title: "Ativos", value: stats.active, icon: Calendar }, 
-    { title: "Atrasados", value: stats.late, icon: AlertTriangle },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -148,7 +147,7 @@ export const Dashboard = () => {
                     )}
 
                     <p className="text-xs text-muted-foreground">
-                      {/* ✅ Mostra Data e Hora se disponível */}
+                     
                       Retirada: {formatDate(rental.dataRetirada)} {rental.horarioRetirada ? `às ${rental.horarioRetirada}` : ''} |
                       Devolução: {formatDate(rental.dataDevolucao)} {rental.horarioDevolucao ? `às ${rental.horarioDevolucao}` : ''}
                     </p>

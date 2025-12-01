@@ -94,6 +94,19 @@ export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
     }
   };
 
+   const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "ativo":
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Em Andamento</Badge>;
+      case "atrasado":
+        return <Badge variant="destructive">Atrasado</Badge>;
+      case "concluido":
+        return <Badge className="bg-gray-500">Concluído</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   useEffect(() => {
     fetchRentals();
   }, [rentalAdded]);
@@ -240,23 +253,29 @@ export const Historico = ({ rentalAdded }: { rentalAdded: number }) => {
 
                   <div className="grid gap-3">
                     {group.rentals.map((item: any) => (
-                      <div key={item._id} className="bg-white p-4 border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition-all hover:border-indigo-100 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                      <div key={item._id || item.id} className="bg-white p-4 border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition-all hover:border-indigo-100 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                        
                         
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-800 text-lg">{item.cliente}</span>
                             {item.telefone && <span className="text-sm text-gray-500">({item.telefone})</span>}
+                            {getStatusBadge(item.status)}
                             {getPaymentBadge(item.pagamento)}
                           </div>
                           <p className="text-sm text-gray-500">
                             <span className="font-medium">Materiais:</span> {Array.isArray(item.materiais) ? item.materiais.join(", ") : item.materiais}
                           </p>
-                          <p className="text-xs text-gray-400">ID: {item._id}</p>
+
+                         {item.observacoes && (
+                        <p className="text-xs text-gray-600 mb-1 italic">
+                            Obs: {item.observacoes}
+                        </p>
+                    )}
                         </div>
 
                         <div className="flex flex-col md:items-end gap-1 text-sm">
                             <div className="text-gray-600 bg-gray-50 px-2 py-1 rounded text-xs md:text-sm">
-                                {/* ✅ Mostra Data e Hora se disponível */}
                                 {formatDate(item.dataRetirada)} {item.horarioRetirada ? `às ${item.horarioRetirada}` : ''} até {formatDate(item.dataDevolucao)} {item.horarioDevolucao ? `às ${item.horarioDevolucao}` : ''}
                             </div>
                             <div className="font-bold text-lg text-green-600">

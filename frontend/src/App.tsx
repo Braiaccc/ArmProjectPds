@@ -27,7 +27,6 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          {/* ✅ Adicione o Provider aqui, dentro do AuthProvider */}
           <NotificationProvider>
             <Routes>
               <Route
