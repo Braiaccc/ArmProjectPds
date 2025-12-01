@@ -1,6 +1,7 @@
 const { ObjectId } = require('mongodb');
 const { connectToMateriaisDB } = require('../../config/dbMateriais');
 
+// ✅ Busca todos os materiais do usuário logado
 async function getMateriais(req, res) {
   try {
     const db = await connectToMateriaisDB();
@@ -15,6 +16,20 @@ async function getMateriais(req, res) {
   }
 }
 
+// ✅ Buscar categorias
+async function getCategorias(req, res) {
+  try {
+    const db = await connectToMateriaisDB();
+    const materiaisCollection = db.collection('materiais');
+    const categorias = await materiaisCollection.distinct("categoria", { userId: req.user.userId });
+    res.status(200).json(categorias);
+  } catch (error) {
+    console.error("Erro ao buscar categorias:", error);
+    res.status(500).json({ error: "Erro interno." });
+  }
+}
+
+// ✅ Cria novo material
 async function createMaterial(req, res) {
   try {
     const db = await connectToMateriaisDB();
@@ -23,6 +38,10 @@ async function createMaterial(req, res) {
 
     newMaterial.userId = req.user.userId;
     newMaterial.createdAt = new Date();
+    
+    // CORREÇÃO: Permite 0. Se for undefined ou não número, aí sim usa 1.
+    const qtd = Number(newMaterial.quantidade);
+    newMaterial.quantidade = isNaN(qtd) ? 1 : qtd; 
 
     const result = await materiaisCollection.insertOne(newMaterial);
 
@@ -37,6 +56,7 @@ async function createMaterial(req, res) {
   }
 }
 
+// ✅ Atualiza material
 async function updateMaterial(req, res) {
   try {
     const db = await connectToMateriaisDB();
@@ -47,11 +67,13 @@ async function updateMaterial(req, res) {
     delete updateData._id;
     delete updateData.userId;
 
+    // CORREÇÃO: Garante update correto da quantidade (inclusive 0)
+    if (updateData.quantidade !== undefined) {
+        updateData.quantidade = Number(updateData.quantidade);
+    }
+
     const result = await materiaisCollection.updateOne(
-      { 
-        _id: new ObjectId(id),
-        userId: req.user.userId 
-      }, 
+      { _id: new ObjectId(id), userId: req.user.userId }, 
       { $set: updateData }
     );
 
@@ -66,6 +88,7 @@ async function updateMaterial(req, res) {
   }
 }
 
+// ✅ Deleta material
 async function deleteMaterial(req, res) {
   try {
     const db = await connectToMateriaisDB();
@@ -74,7 +97,7 @@ async function deleteMaterial(req, res) {
 
     const result = await materiaisCollection.deleteOne({ 
       _id: new ObjectId(id),
-      userId: req.user.userId 
+      userId: req.user.userId
     });
 
     if (result.deletedCount === 0) {
@@ -90,6 +113,7 @@ async function deleteMaterial(req, res) {
 
 module.exports = {
   getMateriais,
+  getCategorias,
   createMaterial,
   updateMaterial,
   deleteMaterial

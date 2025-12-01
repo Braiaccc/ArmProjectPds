@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit, Trash2, Package, X, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
@@ -13,19 +14,20 @@ interface Material {
   _id: string;
   nome: string;
   categoria: string;
-  valorDiario: number;
   codSerie: string;
   observacoes: string;
   status: "disponivel" | "alugado" | "manutencao";
+  quantidade: number;
 }
 
 interface FormData {
   nome: string;
   categoria: string;
-  valorDiario: string;
+  novaCategoria: string;
   codSerie: string;
   observacoes: string;
   status: "disponivel" | "alugado" | "manutencao";
+  quantidade: string; // ✅ Alterado para string para evitar bug do "0" preso
 }
 
 export const CadastroMateriais: React.FC = () => {
@@ -34,29 +36,34 @@ export const CadastroMateriais: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [materiais, setMateriais] = useState<Material[]>([]);
+  
+  const [categoriasExistentes, setCategoriasExistentes] = useState<string[]>([]);
+  const [usarNovaCategoria, setUsarNovaCategoria] = useState(false);
+
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  
+  // ✅ Inicializa quantidade como string vazia (campo limpo)
   const [formData, setFormData] = useState<FormData>({
     nome: "",
     categoria: "",
-    valorDiario: "0",
+    novaCategoria: "",
     codSerie: "",
     observacoes: "",
     status: "disponivel",
+    quantidade: "", 
   });
 
   const fetchMateriais = async () => {
     try {
       setLoading(true);
-      // ✅ Substituído fetch por axios.get
       const response = await axios.get("/materiais");
       setMateriais(response.data);
+
+      const cats = Array.from(new Set(response.data.map((m: Material) => m.categoria))).filter(Boolean) as string[];
+      setCategoriasExistentes(cats);
     } catch (error) {
       console.error("Erro ao carregar materiais:", error);
-      toast({
-        title: "Erro ao carregar",
-        description: "Não foi possível carregar os materiais.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Falha ao carregar.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -66,84 +73,59 @@ export const CadastroMateriais: React.FC = () => {
     fetchMateriais();
   }, []);
 
+  // ✅ Função genérica funciona para tudo agora
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [id]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
 
+    const categoriaFinal = usarNovaCategoria ? formData.novaCategoria : formData.categoria;
+
     if (!formData.nome.trim()) {
-      toast({
-        title: "Campo Obrigatório",
-        description: "O nome do material é obrigatório.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Nome obrigatório.", variant: "destructive" });
       return;
+    }
+    if (!categoriaFinal || !categoriaFinal.trim()) {
+        toast({ title: "Erro", description: "Categoria obrigatória.", variant: "destructive" });
+        return;
     }
 
     const materialPayload = {
       ...formData,
-      valorDiario: Number(formData.valorDiario) || 0,
+      categoria: categoriaFinal,
+      // ✅ Converte para número ao salvar (vazio vira 0)
+      quantidade: formData.quantidade ? Number(formData.quantidade) : 0,
     };
+    delete (materialPayload as any).novaCategoria;
 
     try {
       if (editingMaterial) {
-        // ✅ Axios PUT
         await axios.put(`/materiais/${editingMaterial._id}`, materialPayload);
-        
-        setMateriais(materiais.map(m => m._id === editingMaterial._id ? { ...editingMaterial, ...materialPayload } : m));
-        toast({
-          title: "Material Alterado!",
-          description: `Material ${formData.nome} atualizado com sucesso!`,
-        });
+        toast({ title: "Sucesso", description: "Material atualizado!" });
       } else {
-        // ✅ Axios POST
         await axios.post("/materiais", materialPayload);
-        
-        fetchMateriais(); 
-        toast({
-          title: "Sucesso!",
-          description: `Material ${formData.nome} criado com sucesso!`,
-        });
+        toast({ title: "Sucesso", description: "Material criado!" });
       }
-
+      
+      fetchMateriais();
       resetForm();
     } catch (error) {
-      console.error("Falha ao salvar o material:", error);
-      toast({
-        title: "Erro",
-        description: `Não foi possível ${editingMaterial ? "atualizar" : "salvar"} o material.`,
-        variant: "destructive",
-      });
+      console.error("Erro ao salvar:", error);
+      toast({ title: "Erro", description: "Falha ao salvar.", variant: "destructive" });
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Tem certeza que deseja excluir este material?")) {
-      return;
-    }
+    if (!confirm("Excluir material?")) return;
     try {
-      // ✅ Axios DELETE
       await axios.delete(`/materiais/${id}`);
-
-      toast({
-        title: "Excluído!",
-        description: "Material excluído com sucesso.",
-      });
-
       fetchMateriais();
+      toast({ title: "Excluído", description: "Material removido." });
     } catch (error) {
-      console.error("Falha ao excluir o material:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o material.",
-        variant: "destructive",
-      });
+      console.error(error);
     }
   };
 
@@ -152,11 +134,14 @@ export const CadastroMateriais: React.FC = () => {
     setFormData({
       nome: material.nome,
       categoria: material.categoria,
-      valorDiario: material.valorDiario.toString(),
+      novaCategoria: "",
       codSerie: material.codSerie,
       observacoes: material.observacoes,
       status: material.status,
+      // ✅ Converte número para string ao editar
+      quantidade: material.quantidade !== undefined ? material.quantidade.toString() : "0",
     });
+    setUsarNovaCategoria(false);
     setShowForm(true);
   };
 
@@ -165,126 +150,97 @@ export const CadastroMateriais: React.FC = () => {
     setFormData({
       nome: "",
       categoria: "",
-      valorDiario: "0",
+      novaCategoria: "",
       codSerie: "",
       observacoes: "",
       status: "disponivel",
+      quantidade: "", // Reseta para vazio
     });
+    setUsarNovaCategoria(false);
     setShowForm(false);
   };
 
+  const filteredMateriais = materiais.filter((item) => {
+    return item.nome?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "disponivel":
-        return <Badge className="bg-green-500 hover:bg-green-500 text-white">Disponível</Badge>;
-      case "alugado":
-        return <Badge className="bg-yellow-500 hover:bg-yellow-500 text-white">Alugado</Badge>;
-      case "manutencao":
-        return <Badge className="bg-red-500 hover:bg-red-500 text-white">Manutenção</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+      case "disponivel": return <Badge className="bg-green-500 hover:bg-green-600">Disponível</Badge>;
+      case "alugado": return <Badge className="bg-yellow-500 hover:bg-yellow-600">Alugado</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const filteredMateriais = materiais.filter((item) => {
-    const matchesSearch =
-      item.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.codSerie?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
-
-  if (loading) {
-    return (
-      <div className="p-6 text-center">
-        <p>Carregando materiais...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-6 text-center">Carregando...</div>;
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-semibold">Cadastro de Materiais</h2>
-          <p className="text-muted-foreground">
-            Gerencie o catálogo de materiais disponíveis
-          </p>
+          <p className="text-muted-foreground">Gerencie o estoque e categorias</p>
         </div>
-        <Button
-          onClick={() => {
-            if (showForm && editingMaterial) {
-              resetForm();
-            } else {
-              setShowForm(!showForm);
-            }
-          }}
-          className="flex items-center gap-2"
-        >
-          {showForm && editingMaterial ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {showForm && editingMaterial ? "Cancelar Edição" : "Novo Material"}
+        <Button onClick={() => { if (showForm) resetForm(); else setShowForm(true); }}>
+          {showForm ? <X className="mr-2 h-4 w-4"/> : <Plus className="mr-2 h-4 w-4"/>}
+          {showForm ? "Cancelar" : "Novo Material"}
         </Button>
       </div>
 
       {showForm && (
         <Card>
-          <CardHeader>
-            <CardTitle>{editingMaterial ? "Editar Material" : "Adicionar Novo Material"}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={handleSave}>
+          <CardHeader><CardTitle>{editingMaterial ? "Editar" : "Novo"} Material</CardTitle></CardHeader>
+          <CardContent>
+            <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nome">Nome do Material *</Label>
-                  <Input
-                    id="nome"
-                    placeholder="Digite o nome do material"
-                    value={formData.nome}
-                    onChange={handleInputChange}
-                    required
-                  />
+                  <Label>Nome do Material *</Label>
+                  <Input id="nome" value={formData.nome} onChange={handleInputChange} required />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="categoria">Categoria</Label>
-                  <Input
-                    id="categoria"
-                    placeholder="Ex: Ferramentas, Construção"
-                    value={formData.categoria}
-                    onChange={handleInputChange}
-                  />
+                  <Label>Categoria *</Label>
+                  {usarNovaCategoria ? (
+                      <div className="flex gap-2">
+                          <Input id="novaCategoria" placeholder="Nova categoria..." value={formData.novaCategoria} onChange={handleInputChange} autoFocus />
+                          <Button type="button" variant="ghost" onClick={() => setUsarNovaCategoria(false)}>Cancelar</Button>
+                      </div>
+                  ) : (
+                      <div className="flex gap-2">
+                          <Select value={formData.categoria} onValueChange={(val) => setFormData(prev => ({...prev, categoria: val}))}>
+                            <SelectTrigger className="w-full"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectContent>
+                                {categoriasExistentes.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <Button type="button" variant="outline" onClick={() => setUsarNovaCategoria(true)}><Plus className="h-4 w-4"/></Button>
+                      </div>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
                 <div className="space-y-2">
-                  <Label htmlFor="codSerie">Código/Série</Label>
-                  <Input
-                    id="codSerie"
-                    placeholder="Código interno (opcional)"
-                    value={formData.codSerie}
-                    onChange={handleInputChange}
+                  <Label>Quantidade em Estoque</Label>
+                  <Input 
+                    type="number" 
+                    id="quantidade" 
+                    // ✅ Agora usa handleInputChange normal, tratando como string
+                    value={formData.quantidade} 
+                    onChange={handleInputChange} 
+                    min="0" 
+                    placeholder="0"
                   />
                 </div>
+                {/* Removido Valor Diário daqui visualmente no form também, se não for usar, ou mantendo oculto */}
+              <div className="space-y-2"><Label>Código/Série</Label><Input id="codSerie" value={formData.codSerie} onChange={handleInputChange} /></div>
               </div>
 
-              {/* <div className="space-y-2">
-                <Label htmlFor="observacoes">Observações</Label>
-                <Textarea
-                  id="observacoes"
-                  placeholder="Descrição detalhada do material"
-                  value={formData.observacoes}
-                  onChange={handleInputChange}
-                />
-              </div> */}
+              <div className="space-y-2"><Label>Observações</Label><Textarea id="observacoes" value={formData.observacoes} onChange={handleInputChange} /></div>
 
-              <div className="flex justify-end gap-2 mt-4">
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancelar
-                </Button>
-                <Button type="submit">
-                  <Save className="h-4 w-4 mr-2" />
-                  {editingMaterial ? "Salvar Alterações" : "Salvar Material"}
-                </Button>
+              <div className="flex justify-end pt-4">
+                <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
+                <Button type="submit"><Save className="mr-2 h-4 w-4"/> Salvar</Button>
               </div>
             </form>
           </CardContent>
@@ -292,72 +248,30 @@ export const CadastroMateriais: React.FC = () => {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Materiais Cadastrados
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
-            <Input
-              placeholder="Buscar por material ou código..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full md:w-auto flex-1 rounded-lg"
-            />
-          </div>
-        </CardContent>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredMateriais.length > 0 ? (
-              filteredMateriais.map((material) => (
-                <div
-                  key={material._id}
-                  className="p-4 border rounded-lg hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-lg">{material.nome}</h3>
-                      {getStatusBadge(material.status)}
+        <CardContent className="p-0">
+            <div className="p-4 border-b">
+                <Input placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            </div>
+            <div className="divide-y">
+                {filteredMateriais.map(item => (
+                    <div key={item._id} className="p-4 flex justify-between items-center hover:bg-gray-50">
+                        <div>
+                            <div className="font-semibold text-lg">{item.nome}</div>
+                            <div className="text-sm text-gray-500 flex gap-2 items-center mt-1">
+                                <Badge variant="outline">{item.categoria}</Badge>
+                                {/* Exibe quantidade */}
+                                <Badge className={item.quantidade > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                                    Estoque: {item.quantidade}
+                                </Badge>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Edit className="h-4 w-4"/></Button>
+                            <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(item._id)}><Trash2 className="h-4 w-4"/></Button>
+                        </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(material)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-500 hover:bg-red-100"
-                        onClick={() => handleDelete(material._id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Categoria:</p>
-                      <p>{material.categoria}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Valor Diário:</p>
-                      <p className="font-medium">
-                        R$ {material.valorDiario.toFixed(2)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Código/Série:</p>
-                      <p>{material.codSerie}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-gray-500">Nenhum material encontrado.</p>
-            )}
-          </div>
+                ))}
+            </div>
         </CardContent>
       </Card>
     </div>

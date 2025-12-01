@@ -15,14 +15,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
 
 export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // ✅ Estado para guardar como o aluguel estava ANTES de editar
+  const [initialStatus, setInitialStatus] = useState(""); 
+  
   const { toast } = useToast();
+
+  // ✅ CORREÇÃO CRÍTICA:
+  // Só atualiza o initialStatus quando o modal ABRE (open muda para true).
+  // Removemos 'rental' das dependências para ele não atualizar enquanto você edita.
+  useEffect(() => {
+    if (open && rental) {
+        setInitialStatus(rental.status || "ativo");
+    }
+  }, [open]); 
 
   if (!rental) return null;
 
@@ -63,10 +76,50 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
 
       const rentalId = rental._id || rental.id;
       const rentalToUpdate = { ...rental };
+      
+      // Limpeza de campos técnicos
       delete rentalToUpdate._id;
       delete rentalToUpdate.id;
 
+      // 1. Atualiza os dados do aluguel primeiro
       await axios.put(`/rentals/${rentalId}`, rentalToUpdate);
+
+      // ✅ LÓGICA DE DEVOLUÇÃO AO ESTOQUE
+      // Verifica se mudou para "concluido" E se antes NÃO estava "concluido"
+      if (rental.status === "concluido" && initialStatus !== "concluido") {
+        
+        // Busca estoque atualizado para não errar a conta
+        const responseMat = await axios.get("/materiais");
+        const allMaterials = responseMat.data;
+
+        const materialsToReturn = Array.isArray(rental.materiais) ? rental.materiais : [];
+        
+        // Cria uma lista de promessas para atualizar cada material
+        const updatePromises = materialsToReturn.map((nomeMat: string) => {
+            // Acha o material pelo nome
+            const matEncontrado = allMaterials.find((m: any) => m.nome === nomeMat);
+            
+            if (matEncontrado) {
+                // Devolve +1 ao estoque
+                const novaQtd = (matEncontrado.quantidade || 0) + 1;
+                
+                // Chama a API de materiais para salvar o novo estoque
+                return axios.put(`/materiais/${matEncontrado._id}`, {
+                    ...matEncontrado,
+                    quantidade: novaQtd
+                });
+            }
+        });
+
+        // Aguarda todas as atualizações de estoque terminarem
+        await Promise.all(updatePromises);
+        
+        toast({ 
+            title: "Estoque atualizado!", 
+            description: `${materialsToReturn.length} itens devolvidos ao estoque.`,
+            className: "bg-green-100 border-green-500 text-green-900"
+        });
+      }
 
       toast({
         title: "Aluguel Alterado!",
@@ -74,10 +127,8 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
       });
 
       onSave(rental);
+      setTimeout(() => onClose(), 500);
 
-      setTimeout(() => {
-        onClose();
-      }, 500);
     } catch (err: any) {
       setError(err.message || "Erro ao salvar alterações");
       console.error("Erro ao atualizar:", err);
@@ -92,25 +143,13 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
     try {
       setLoading(true);
       setError("");
-
       const rentalId = rental._id || rental.id;
-
       await axios.delete(`/rentals/${rentalId}`);
-
-      toast({
-        title: "Aluguel excluído",
-        description: "O aluguel foi removido com sucesso.",
-      });
-
-      if (onDelete) {
-        onDelete(rentalId);
-      }
-
+      toast({ title: "Aluguel excluído", description: "Removido com sucesso." });
+      if (onDelete) onDelete(rentalId);
       onClose();
-      
     } catch (err: any) {
       setError(err.message || "Erro ao excluir");
-      console.error("Erro ao excluir:", err);
     } finally {
       setLoading(false);
     }
@@ -124,117 +163,33 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="id">ID</Label>
-            <Input
-              id="id"
-              value={rental.id || rental._id || ""}
-              disabled
-              className="bg-muted"
-            />
+          <div><Label htmlFor="id">ID</Label><Input id="id" value={rental.id || rental._id || ""} disabled className="bg-muted" /></div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div><Label>Cliente</Label><Input value={rental.cliente || ""} onChange={(e) => handleChange("cliente", e.target.value)} /></div>
+            <div><Label>Telefone</Label><Input value={rental.telefone || ""} onChange={(e) => handleChange("telefone", formatPhoneNumber(e.target.value))} maxLength={15} /></div>
+          </div>
+
+          <div><Label>Valor</Label><Input value={rental.valor || ""} type="number" onChange={(e) => handleChange("valor", Number(e.target.value))} /></div>
+          
+          {/* Materiais são apenas leitura na edição para evitar conflitos complexos de estoque */}
+          <div><Label>Materiais</Label><Input value={Array.isArray(rental.materiais) ? rental.materiais.join(", ") : rental.materiais || ""} disabled className="bg-muted" /></div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1"><Label>Data Retirada</Label><Input type="date" value={toDateInput(rental.dataRetirada)} onChange={(e) => handleChange("dataRetirada", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Hora Retirada</Label><Input type="time" value={rental.horarioRetirada || ""} onChange={(e) => handleChange("horarioRetirada", e.target.value)} /></div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1"><Label>Data Devolução</Label><Input type="date" value={toDateInput(rental.dataDevolucao)} onChange={(e) => handleChange("dataDevolucao", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Hora Devolução</Label><Input type="time" value={rental.horarioDevolucao || ""} onChange={(e) => handleChange("horarioDevolucao", e.target.value)} /></div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-                <Label htmlFor="cliente">Cliente</Label>
-                <Input
-                id="cliente"
-                value={rental.cliente || ""}
-                onChange={(e) => handleChange("cliente", e.target.value)}
-                placeholder="Nome do cliente"
-                />
-            </div>
-            <div>
-                <Label htmlFor="telefone">Telefone</Label>
-                <Input
-                id="telefone"
-                value={rental.telefone || ""}
-                onChange={(e) => handleChange("telefone", formatPhoneNumber(e.target.value))}
-                placeholder="Telefone"
-                maxLength={15}
-                />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="valor">Valor</Label>
-            <Input
-              id="valor"
-              value={rental.valor || ""}
-              type="number"
-              onChange={(e) => handleChange("valor", Number(e.target.value))}
-              placeholder="Valor"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="materiais">Materiais</Label>
-            <Input
-              id="materiais"
-              value={
-                Array.isArray(rental.materiais)
-                  ? rental.materiais.join(", ")
-                  : rental.materiais || ""
-              }
-              disabled
-              className="bg-muted"
-            />
-          </div>
-
-          {/* ✅ DATA E HORA DE RETIRADA */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-                <Label htmlFor="dataRetirada">Data Retirada</Label>
-                <Input
-                id="dataRetirada"
-                type="date"
-                value={toDateInput(rental.dataRetirada)}
-                onChange={(e) => handleChange("dataRetirada", e.target.value)}
-                />
-            </div>
-            <div className="space-y-1">
-                <Label htmlFor="horarioRetirada">Hora Retirada</Label>
-                <Input
-                id="horarioRetirada"
-                type="time"
-                value={rental.horarioRetirada || ""}
-                onChange={(e) => handleChange("horarioRetirada", e.target.value)}
-                />
-            </div>
-          </div>
-
-          {/* ✅ DATA E HORA DE DEVOLUÇÃO */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-                <Label htmlFor="dataDevolucao">Data Devolução</Label>
-                <Input
-                id="dataDevolucao"
-                type="date"
-                value={toDateInput(rental.dataDevolucao)}
-                onChange={(e) => handleChange("dataDevolucao", e.target.value)}
-                />
-            </div>
-            <div className="space-y-1">
-                <Label htmlFor="horarioDevolucao">Hora Devolução</Label>
-                <Input
-                id="horarioDevolucao"
-                type="time"
-                value={rental.horarioDevolucao || ""}
-                onChange={(e) => handleChange("horarioDevolucao", e.target.value)}
-                />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-                <Label htmlFor="status">Status</Label>
-                <Select
-                value={rental.status || "ativo"}
-                onValueChange={(value) => handleChange("status", value)}
-                >
-                <SelectTrigger id="status">
-                    <SelectValue />
-                </SelectTrigger>
+                <Label>Status</Label>
+                <Select value={rental.status || "ativo"} onValueChange={(value) => handleChange("status", value)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="ativo">Em Andamento</SelectItem>
                     <SelectItem value="atrasado">Atrasado</SelectItem>
@@ -242,16 +197,10 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
                 </SelectContent>
                 </Select>
             </div>
-
             <div>
-                <Label htmlFor="pagamento">Status de Pagamento</Label>
-                <Select
-                value={rental.pagamento || "pendente"}
-                onValueChange={(value) => handleChange("pagamento", value)}
-                >
-                <SelectTrigger id="pagamento">
-                    <SelectValue />
-                </SelectTrigger>
+                <Label>Pagamento</Label>
+                <Select value={rental.pagamento || "pendente"} onValueChange={(value) => handleChange("pagamento", value)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="pago">Pago</SelectItem>
                     <SelectItem value="pendente">Pendente</SelectItem>
@@ -261,46 +210,16 @@ export const RentalModal = ({ open, onClose, rental, onSave, onDelete }: any) =>
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="observacoes">Observações</Label>
-            <Textarea
-              id="observacoes"
-              value={rental.observacoes || ""}
-              onChange={(e) => handleChange("observacoes", e.target.value)}
-              placeholder="Observações do aluguel"
-            />
-          </div>
-
+          <div><Label>Observações</Label><Textarea value={rental.observacoes || ""} onChange={(e) => handleChange("observacoes", e.target.value)} /></div>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded text-sm">
-            {error}
-          </div>
-        )}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded text-sm">{error}</div>}
 
         <div className="flex justify-between items-center pt-4 mt-2 border-t">
-          <Button
-            variant="destructive"
-            onClick={deleteRental}
-            disabled={loading}
-            className="bg-red-600 hover:bg-red-700"
-          >
-            Excluir
-          </Button>
-
+          <Button variant="destructive" onClick={deleteRental} disabled={loading} className="bg-red-600 hover:bg-red-700">Excluir</Button>
           <div className="flex gap-2">
-            <Button onClick={onClose} variant="outline">
-              Cancelar
-            </Button>
-
-            <Button
-              onClick={updateRental}
-              disabled={loading}
-              className="bg-blue-500 hover:bg-blue-600"
-            >
-              {loading ? "Salvando..." : "Salvar"}
-            </Button>
+            <Button onClick={onClose} variant="outline">Cancelar</Button>
+            <Button onClick={updateRental} disabled={loading} className="bg-blue-500 hover:bg-blue-600">{loading ? "Salvando..." : "Salvar"}</Button>
           </div>
         </div>
       </DialogContent>
